@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, Save, X } from 'lucide-react'
 import { TBDLoan, LedgerTransaction } from '@/types'
 import { format } from 'date-fns'
+import ImageUpload from '@/components/ImageUpload'
 
 export default function TBDLedgerPage() {
   const router = useRouter()
@@ -349,20 +350,124 @@ export default function TBDLedgerPage() {
             </div>
           </div>
 
-          {/* Right Panel - Transaction Ledger and Image Placeholders */}
+          {/* Right Panel - Transaction Ledger and Image Uploads */}
           <div className="space-y-6">
-            {/* Image Placeholders */}
-            <div className="grid grid-cols-1 gap-4">
-              <div className="bg-gray-200 rounded-lg p-4 h-32 flex items-center justify-center border-2 border-dashed border-gray-400">
-                <span className="text-gray-500 text-sm">Loan Persons</span>
+            {/* Image Upload Components */}
+            {selectedAccount && (
+              <div className="grid grid-cols-1 gap-4">
+                <ImageUpload
+                  imageUrl={formData.customerImageUrl}
+                  label="Loan Person"
+                  loanId={selectedAccount}
+                  imageType="customer"
+                  onUpload={async (file) => {
+                    const uploadFormData = new FormData()
+                    uploadFormData.append('file', file)
+                    uploadFormData.append('imageType', 'customer')
+                    
+                    const response = await fetch(`/api/loans/${selectedAccount}/images`, {
+                      method: 'POST',
+                      body: uploadFormData,
+                    })
+                    
+                    if (!response.ok) {
+                      const error = await response.json()
+                      throw new Error(error.error || 'Upload failed')
+                    }
+                    
+                    const data = await response.json()
+                    setFormData(prev => ({ ...prev, customerImageUrl: data.url }))
+                    return data.url
+                  }}
+                  onDelete={async () => {
+                    const response = await fetch(`/api/loans/${selectedAccount}/images?imageType=customer`, {
+                      method: 'DELETE',
+                    })
+                    
+                    if (!response.ok) {
+                      const error = await response.json()
+                      throw new Error(error.error || 'Delete failed')
+                    }
+                    
+                    setFormData(prev => ({ ...prev, customerImageUrl: undefined }))
+                  }}
+                />
+                <ImageUpload
+                  imageUrl={formData.guarantor1ImageUrl}
+                  label="Surety Person"
+                  loanId={selectedAccount}
+                  imageType="guarantor1"
+                  onUpload={async (file) => {
+                    const uploadFormData = new FormData()
+                    uploadFormData.append('file', file)
+                    uploadFormData.append('imageType', 'guarantor1')
+                    
+                    const response = await fetch(`/api/loans/${selectedAccount}/images`, {
+                      method: 'POST',
+                      body: uploadFormData,
+                    })
+                    
+                    if (!response.ok) {
+                      const error = await response.json()
+                      throw new Error(error.error || 'Upload failed')
+                    }
+                    
+                    const data = await response.json()
+                    setFormData(prev => ({ ...prev, guarantor1ImageUrl: data.url }))
+                    return data.url
+                  }}
+                  onDelete={async () => {
+                    const response = await fetch(`/api/loans/${selectedAccount}/images?imageType=guarantor1`, {
+                      method: 'DELETE',
+                    })
+                    
+                    if (!response.ok) {
+                      const error = await response.json()
+                      throw new Error(error.error || 'Delete failed')
+                    }
+                    
+                    setFormData(prev => ({ ...prev, guarantor1ImageUrl: undefined }))
+                  }}
+                />
+                <ImageUpload
+                  imageUrl={formData.partnerImageUrl}
+                  label="Partner"
+                  loanId={selectedAccount}
+                  imageType="partner"
+                  onUpload={async (file) => {
+                    const uploadFormData = new FormData()
+                    uploadFormData.append('file', file)
+                    uploadFormData.append('imageType', 'partner')
+                    
+                    const response = await fetch(`/api/loans/${selectedAccount}/images`, {
+                      method: 'POST',
+                      body: uploadFormData,
+                    })
+                    
+                    if (!response.ok) {
+                      const error = await response.json()
+                      throw new Error(error.error || 'Upload failed')
+                    }
+                    
+                    const data = await response.json()
+                    setFormData(prev => ({ ...prev, partnerImageUrl: data.url }))
+                    return data.url
+                  }}
+                  onDelete={async () => {
+                    const response = await fetch(`/api/loans/${selectedAccount}/images?imageType=partner`, {
+                      method: 'DELETE',
+                    })
+                    
+                    if (!response.ok) {
+                      const error = await response.json()
+                      throw new Error(error.error || 'Delete failed')
+                    }
+                    
+                    setFormData(prev => ({ ...prev, partnerImageUrl: undefined }))
+                  }}
+                />
               </div>
-              <div className="bg-gray-200 rounded-lg p-4 h-32 flex items-center justify-center border-2 border-dashed border-gray-400">
-                <span className="text-gray-500 text-sm">Surity Persons</span>
-              </div>
-              <div className="bg-gray-200 rounded-lg p-4 h-32 flex items-center justify-center border-2 border-dashed border-gray-400">
-                <span className="text-gray-500 text-sm">Partner</span>
-              </div>
-            </div>
+            )}
 
             {/* Transaction Ledger Table */}
             <div className="bg-white rounded-lg shadow-md p-4">

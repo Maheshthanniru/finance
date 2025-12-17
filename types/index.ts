@@ -31,6 +31,11 @@ export interface Loan {
   partnerName?: string;
   userName: string;
   entryTime: string;
+  // Image URLs from Supabase Storage
+  customerImageUrl?: string;
+  guarantor1ImageUrl?: string;
+  guarantor2ImageUrl?: string;
+  partnerImageUrl?: string;
 }
 
 export interface Transaction {

@@ -4,6 +4,17 @@ import { Loan } from '@/types'
 
 export async function GET(request: NextRequest) {
   try {
+    // Check if Supabase is configured
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      return NextResponse.json(
+        { 
+          error: 'Supabase not configured',
+          message: 'Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local'
+        },
+        { status: 500 }
+      )
+    }
+
     const { searchParams } = new URL(request.url)
     const type = searchParams.get('type')
     const number = searchParams.get('number')
@@ -20,7 +31,14 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json(loans)
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch loans' }, { status: 500 })
+    console.error('Error in GET /api/loans:', error)
+    return NextResponse.json(
+      { 
+        error: 'Failed to fetch loans',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500 }
+    )
   }
 }
 

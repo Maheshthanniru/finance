@@ -1,5 +1,5 @@
 import { Loan, Transaction, Partner, DailyReport, DayBookEntry } from '@/types';
-import { supabase } from './supabase';
+import { supabase, isSupabaseConfigured } from './supabase';
 
 // Helper function to convert database loan to Loan type
 function mapLoanFromDb(dbLoan: any): Loan {
@@ -34,6 +34,10 @@ function mapLoanFromDb(dbLoan: any): Loan {
     partnerName: dbLoan.partner_name,
     userName: dbLoan.user_name,
     entryTime: dbLoan.entry_time,
+    customerImageUrl: dbLoan.customer_image_url,
+    guarantor1ImageUrl: dbLoan.guarantor1_image_url,
+    guarantor2ImageUrl: dbLoan.guarantor2_image_url,
+    partnerImageUrl: dbLoan.partner_image_url,
   };
 }
 
@@ -66,6 +70,10 @@ function mapLoanToDb(loan: Loan): any {
     partner_name: loan.partnerName || null,
     user_name: loan.userName,
     entry_time: loan.entryTime,
+    customer_image_url: loan.customerImageUrl || null,
+    guarantor1_image_url: loan.guarantor1ImageUrl || null,
+    guarantor2_image_url: loan.guarantor2ImageUrl || null,
+    partner_image_url: loan.partnerImageUrl || null,
   };
 }
 
@@ -103,16 +111,31 @@ function mapTransactionToDb(transaction: Transaction): any {
 
 export async function getLoans(): Promise<Loan[]> {
   try {
+    // Check if Supabase is configured
+    if (!isSupabaseConfigured()) {
+      console.warn('Supabase is not configured. Returning empty array.');
+      return [];
+    }
+
     const { data, error } = await supabase
       .from('loans')
       .select('*')
       .eq('is_deleted', false)
       .order('date', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error fetching loans:', error);
+      // If table doesn't exist, return empty array instead of throwing
+      if (error.code === 'PGRST116' || error.message?.includes('relation') || error.message?.includes('does not exist')) {
+        console.warn('Loans table does not exist yet. Please run the database schema.');
+        return [];
+      }
+      throw error;
+    }
     return (data || []).map(mapLoanFromDb);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching loans:', error);
+    // Return empty array on any error to prevent app crashes
     return [];
   }
 }
