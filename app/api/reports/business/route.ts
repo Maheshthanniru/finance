@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
 
     const outstanding = filtered.map(loan => ({
       date: loan.date,
-      dueDate: loan.dueDate || loan.date,
+      dueDate: (loan as any).dueDate || loan.date,
       number: `${loan.loanType}-${loan.number}`,
       loan: loan.loanAmount,
       paid: 0,

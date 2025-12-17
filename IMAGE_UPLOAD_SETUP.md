@@ -136,3 +136,4 @@ The following fields are added to the `loans` table:
 - Add image gallery view
 - Implement image backup/export functionality
 
+

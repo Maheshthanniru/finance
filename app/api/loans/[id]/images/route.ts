@@ -102,7 +102,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Loan not found' }, { status: 404 })
     }
 
-    const imageUrl = loan[getImageFieldName(imageType)]
+    const imageUrl = loan[getImageFieldName(imageType) as keyof typeof loan] as string | null
     if (!imageUrl) {
       return NextResponse.json({ error: 'No image to delete' }, { status: 404 })
     }
@@ -149,4 +149,5 @@ function getImageFieldName(imageType: string): string {
   }
   return mapping[imageType] || 'customer_image_url'
 }
+
 

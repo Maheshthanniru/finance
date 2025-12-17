@@ -241,6 +241,7 @@ export default function SearchPage() {
                 placeholder="Enter ledger name"
               />
             </div>
+            </div>
           )}
           <div className="mt-4 flex gap-2">
             <button
