@@ -73,10 +73,10 @@ export default function PartnerPerformancePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-blue-600 text-white shadow-lg">
+      <div className="bg-orange-500 text-white shadow-lg">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center gap-4">
-            <button onClick={() => router.back()} className="hover:bg-blue-700 p-2 rounded">
+            <button onClick={() => router.back()} className="hover:bg-orange-600 p-2 rounded">
               <ArrowLeft className="w-5 h-5" />
             </button>
             <h1 className="text-2xl font-bold">Partner Performance</h1>
@@ -97,7 +97,7 @@ export default function PartnerPerformancePage() {
                     onClick={() => setSelectedPartner(partner)}
                     className={`w-full text-left px-4 py-2 rounded-md ${
                       selectedPartner === partner
-                        ? 'bg-blue-600 text-white'
+                        ? 'bg-orange-500 text-white'
                         : 'bg-gray-100 hover:bg-gray-200'
                     }`}
                   >
@@ -136,14 +136,14 @@ export default function PartnerPerformancePage() {
                 <button
                   onClick={fetchPartnerPerformance}
                   disabled={!selectedPartner || loading}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md flex items-center gap-2 disabled:opacity-50"
+                  className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-md flex items-center gap-2 disabled:opacity-50"
                 >
                   <RefreshCw className="w-4 h-4" />
                   {loading ? 'Loading...' : 'Load Performance'}
                 </button>
                 <button
                   onClick={() => window.print()}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md flex items-center gap-2"
+                  className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-md flex items-center gap-2"
                 >
                   <Printer className="w-4 h-4" />
                   Print
@@ -151,7 +151,7 @@ export default function PartnerPerformancePage() {
               </div>
 
               {performance && selectedPartner && (
-                <div className="bg-blue-50 rounded-lg p-4 mb-6">
+                <div className="bg-orange-50 rounded-lg p-4 mb-6">
                   <h4 className="text-lg font-bold mb-3">{selectedPartner} Performance</h4>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     <div>
@@ -183,22 +183,22 @@ export default function PartnerPerformancePage() {
               )}
 
               <div className="grid grid-cols-2 gap-3 mb-6">
-                <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">
+                <button className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-md">
                   All Partner Performances
                 </button>
-                <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">
+                <button className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-md">
                   Selected Partner Commission Details
                 </button>
-                <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">
+                <button className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-md">
                   Selected Partner DOC Details
                 </button>
-                <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">
+                <button className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-md">
                   Selected Partner PNALTY Details
                 </button>
-                <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">
+                <button className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-md">
                   Receipts
                 </button>
-                <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">
+                <button className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-md">
                   All Partner Details
                 </button>
               </div>
@@ -239,3 +239,5 @@ export default function PartnerPerformancePage() {
     </div>
   )
 }
+
+

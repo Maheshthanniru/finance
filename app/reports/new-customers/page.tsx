@@ -103,11 +103,11 @@ export default function NewCustomersPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-blue-600 text-white shadow-lg">
+      <div className="bg-orange-500 text-white shadow-lg">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <button onClick={() => router.back()} className="hover:bg-blue-700 p-2 rounded">
+              <button onClick={() => router.back()} className="hover:bg-orange-600 p-2 rounded">
                 <ArrowLeft className="w-5 h-5" />
               </button>
               <h1 className="text-2xl font-bold">New Customers Report</h1>
@@ -179,7 +179,7 @@ export default function NewCustomersPage() {
                   className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
                   placeholder="Search by name, phone, aadhaar..."
                 />
-                <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md flex items-center gap-2">
+                <button className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-md flex items-center gap-2">
                   <Search className="w-4 h-4" />
                 </button>
               </div>
@@ -188,19 +188,19 @@ export default function NewCustomersPage() {
         </div>
 
         {/* Summary */}
-        <div className="bg-blue-50 rounded-lg shadow-md p-4 mb-6">
+        <div className="bg-orange-50 rounded-lg shadow-md p-4 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <div className="text-sm text-gray-600 mb-1">Total New Customers</div>
-              <div className="text-2xl font-bold text-blue-700">{totalCustomers}</div>
+              <div className="text-2xl font-bold text-orange-600">{totalCustomers}</div>
             </div>
             <div>
               <div className="text-sm text-gray-600 mb-1">Total Loan Amount</div>
-              <div className="text-2xl font-bold text-blue-700">{formatCurrency(totalLoanAmount)}</div>
+              <div className="text-2xl font-bold text-orange-600">{formatCurrency(totalLoanAmount)}</div>
             </div>
             <div>
               <div className="text-sm text-gray-600 mb-1">Average Loan Amount</div>
-              <div className="text-2xl font-bold text-blue-700">
+              <div className="text-2xl font-bold text-orange-600">
                 {totalCustomers > 0 ? formatCurrency(totalLoanAmount / totalCustomers) : '0.00'}
               </div>
             </div>
@@ -291,3 +291,5 @@ export default function NewCustomersPage() {
     </div>
   )
 }
+
+

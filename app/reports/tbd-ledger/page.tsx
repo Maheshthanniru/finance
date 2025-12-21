@@ -24,9 +24,12 @@ export default function TBDLedgerPage() {
   })
   const [ledgerTransactions, setLedgerTransactions] = useState<LedgerTransaction[]>([])
   const [accounts, setAccounts] = useState<TBDLoan[]>([])
+  const [currentTime, setCurrentTime] = useState<string>('')
 
   useEffect(() => {
     fetchAccounts()
+    // Set current time on client side only to avoid hydration mismatch
+    setCurrentTime(new Date().toLocaleString())
   }, [])
 
   useEffect(() => {
@@ -133,7 +136,7 @@ export default function TBDLedgerPage() {
             </div>
             <div className="text-right">
               <div className="text-sm">User Name: RAMESH</div>
-              <div className="text-sm">{new Date().toLocaleString()}</div>
+              <div className="text-sm">{currentTime || 'Loading...'}</div>
             </div>
           </div>
         </div>
@@ -504,7 +507,7 @@ export default function TBDLedgerPage() {
                       <td className="px-2 py-2 border text-right">{formatCurrency(creditTotal)}</td>
                       <td className="px-2 py-2 border text-right">{formatCurrency(debitTotal)}</td>
                     </tr>
-                    <tr className="bg-blue-50 font-bold">
+                    <tr className="bg-orange-50 font-bold">
                       <td className="px-2 py-2 border">Balance:</td>
                       <td colSpan={2} className="px-2 py-2 border text-right">{formatCurrency(balance)}</td>
                     </tr>
@@ -518,3 +521,5 @@ export default function TBDLedgerPage() {
     </div>
   )
 }
+
+

@@ -90,10 +90,10 @@ export default function SearchPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-blue-600 text-white shadow-lg">
+      <div className="bg-orange-500 text-white shadow-lg">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center gap-4">
-            <button onClick={() => router.back()} className="hover:bg-blue-700 p-2 rounded">
+            <button onClick={() => router.back()} className="hover:bg-orange-600 p-2 rounded">
               <ArrowLeft className="w-5 h-5" />
             </button>
             <h1 className="text-2xl font-bold">Find</h1>
@@ -109,7 +109,7 @@ export default function SearchPage() {
               onClick={() => setSearchMode('normal')}
               className={`px-4 py-2 rounded-md ${
                 searchMode === 'normal'
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-orange-500 text-white'
                   : 'bg-gray-200 text-gray-700'
               }`}
             >
@@ -119,7 +119,7 @@ export default function SearchPage() {
               onClick={() => setSearchMode('aadhaar')}
               className={`px-4 py-2 rounded-md ${
                 searchMode === 'aadhaar'
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-orange-500 text-white'
                   : 'bg-gray-200 text-gray-700'
               }`}
             >
@@ -247,7 +247,7 @@ export default function SearchPage() {
             <button
               onClick={handleSearch}
               disabled={loading}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md flex items-center gap-2 disabled:opacity-50"
+              className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-md flex items-center gap-2 disabled:opacity-50"
             >
               <Search className="w-5 h-5" />
               {loading ? 'Searching...' : 'Search'}
@@ -326,7 +326,7 @@ export default function SearchPage() {
               <button className="bg-gray-300 hover:bg-gray-400 px-3 py-1 rounded text-sm">
                 No Filter
               </button>
-              <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1 rounded-md flex items-center gap-2">
+              <button className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-1 rounded-md flex items-center gap-2">
                 <Search className="w-4 h-4" />
                 Search
               </button>

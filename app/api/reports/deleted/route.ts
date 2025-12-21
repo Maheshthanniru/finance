@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { supabase } from '@/lib/supabase'
 
 export async function GET(request: NextRequest) {
   try {
@@ -7,10 +8,43 @@ export async function GET(request: NextRequest) {
     const toDate = searchParams.get('toDate')
     const month = searchParams.get('month')
 
-    // This would fetch from actual deleted records table
-    // For now, return empty array
-    return NextResponse.json([])
+    let query = supabase
+      .from('loan_deletions')
+      .select('*')
+      .order('deleted_at', { ascending: false })
+
+    // Apply date filters
+    if (fromDate) {
+      query = query.gte('deleted_at', fromDate)
+    }
+    if (toDate) {
+      query = query.lte('deleted_at', toDate + 'T23:59:59')
+    }
+    if (month) {
+      const [year, monthNum] = month.split('-')
+      query = query
+        .gte('deleted_at', `${year}-${monthNum}-01`)
+        .lt('deleted_at', `${year}-${parseInt(monthNum) + 1}-01`)
+    }
+
+    const { data, error } = await query
+
+    if (error) throw error
+
+    // Map to the expected format
+    const deletedMembers = (data || []).map((deletion: any) => ({
+      id: deletion.id,
+      date: deletion.date,
+      number: `${deletion.loan_type || ''}-${deletion.number || ''}`,
+      name: deletion.customer_name || '',
+      aadhaar: deletion.aadhaar,
+      amount: parseFloat(deletion.loan_amount || 0),
+      user: deletion.user_name || 'SYSTEM',
+    }))
+
+    return NextResponse.json(deletedMembers)
   } catch (error) {
+    console.error('Error fetching deleted records:', error)
     return NextResponse.json({ error: 'Failed to fetch deleted records' }, { status: 500 })
   }
 }

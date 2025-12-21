@@ -42,11 +42,11 @@ export default function DayBookPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-blue-600 text-white shadow-lg">
+      <div className="bg-orange-500 text-white shadow-lg">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <button onClick={() => router.back()} className="hover:bg-blue-700 p-2 rounded">
+              <button onClick={() => router.back()} className="hover:bg-orange-600 p-2 rounded">
                 <ArrowLeft className="w-5 h-5" />
               </button>
               <h1 className="text-2xl font-bold">Day Book</h1>
@@ -134,4 +134,6 @@ export default function DayBookPage() {
     </div>
   )
 }
+
+
 

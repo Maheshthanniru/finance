@@ -1,52 +1,56 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-interface Customer {
-  id: string
-  customerId: number
-  aadhaar?: string
-  name: string
-  father?: string
-  address: string
-  village?: string
-  mandal?: string
-  district?: string
-  phone1?: string
-  phone2?: string
-}
-
-// In-memory storage (replace with actual database)
-let customers: Customer[] = []
+import { getCustomers, saveCustomer } from '@/lib/data'
+import { supabase } from '@/lib/supabase'
 
 export async function GET() {
   try {
+    const customers = await getCustomers()
     return NextResponse.json(customers)
   } catch (error) {
+    console.error('Error fetching customers:', error)
     return NextResponse.json({ error: 'Failed to fetch customers' }, { status: 500 })
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const customer: Customer = await request.json()
-    if (!customer.id) {
-      customer.id = `customer-${Date.now()}`
+    const customer = await request.json()
+    await saveCustomer(customer)
+    
+    // Fetch the saved customer to get the ID
+    const savedCustomers = await getCustomers()
+    const savedCustomer = savedCustomers.find(
+      c => c.customerId === customer.customerId
+    )
+    
+    if (!savedCustomer) {
+      console.error('Customer saved but not found in fetch:', customer)
+      return NextResponse.json({ 
+        error: 'Customer saved but could not retrieve ID',
+        customer: customer 
+      }, { status: 500 })
     }
-    customers.push(customer)
-    return NextResponse.json({ success: true, customer })
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to save customer' }, { status: 500 })
+    
+    return NextResponse.json({ 
+      success: true, 
+      customer: savedCustomer,
+      id: savedCustomer.id // Explicitly include ID for easier access
+    })
+  } catch (error: any) {
+    console.error('Error saving customer:', error)
+    return NextResponse.json({ 
+      error: error.message || 'Failed to save customer' 
+    }, { status: 500 })
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
-    const customer: Customer = await request.json()
-    const index = customers.findIndex(c => c.id === customer.id)
-    if (index >= 0) {
-      customers[index] = customer
-    }
+    const customer = await request.json()
+    await saveCustomer(customer) // Upsert handles both create and update
     return NextResponse.json({ success: true, customer })
   } catch (error) {
+    console.error('Error updating customer:', error)
     return NextResponse.json({ error: 'Failed to update customer' }, { status: 500 })
   }
 }
@@ -58,9 +62,14 @@ export async function DELETE(request: NextRequest) {
     if (!id) {
       return NextResponse.json({ error: 'Customer ID is required' }, { status: 400 })
     }
-    customers = customers.filter(c => c.id !== id)
+    const { error } = await supabase
+      .from('customers')
+      .delete()
+      .eq('id', id)
+    if (error) throw error
     return NextResponse.json({ success: true })
   } catch (error) {
+    console.error('Error deleting customer:', error)
     return NextResponse.json({ error: 'Failed to delete customer' }, { status: 500 })
   }
 }

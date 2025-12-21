@@ -70,11 +70,27 @@ export default function EditedDeletedPage() {
       const deletedData = await deletedRes.json()
       const daybookData = await daybookRes.json()
 
-      setEditedMembers(editedData)
-      setDeletedMembers(deletedData)
-      setDeletedDaybook(daybookData)
+      // Ensure we always set arrays, even if API returns error objects
+      setEditedMembers(Array.isArray(editedData) ? editedData : [])
+      setDeletedMembers(Array.isArray(deletedData) ? deletedData : [])
+      setDeletedDaybook(Array.isArray(daybookData) ? daybookData : [])
+
+      // Log errors if any
+      if (!Array.isArray(editedData) && editedData.error) {
+        console.error('Error fetching edited records:', editedData.error)
+      }
+      if (!Array.isArray(deletedData) && deletedData.error) {
+        console.error('Error fetching deleted records:', deletedData.error)
+      }
+      if (!Array.isArray(daybookData) && daybookData.error) {
+        console.error('Error fetching deleted daybook:', daybookData.error)
+      }
     } catch (error) {
       console.error('Error fetching data:', error)
+      // Set empty arrays on error to prevent map errors
+      setEditedMembers([])
+      setDeletedMembers([])
+      setDeletedDaybook([])
     } finally {
       setLoading(false)
     }
@@ -95,10 +111,10 @@ export default function EditedDeletedPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-blue-600 text-white shadow-lg">
+      <div className="bg-orange-500 text-white shadow-lg">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center gap-4">
-            <button onClick={() => router.back()} className="hover:bg-blue-700 p-2 rounded">
+            <button onClick={() => router.back()} className="hover:bg-orange-600 p-2 rounded">
               <ArrowLeft className="w-5 h-5" />
             </button>
             <h1 className="text-2xl font-bold">ED Form</h1>
@@ -211,7 +227,7 @@ export default function EditedDeletedPage() {
               </div>
               <div className="mt-4 flex items-center justify-between">
                 <span className="text-sm text-gray-600">Record: 1 of {editedMembers.length}</span>
-                <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1 rounded-md flex items-center gap-2">
+                <button className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-1 rounded-md flex items-center gap-2">
                   <Search className="w-4 h-4" />
                   Search
                 </button>
@@ -263,7 +279,7 @@ export default function EditedDeletedPage() {
               </div>
               <div className="mt-4 flex items-center justify-between">
                 <span className="text-sm text-gray-600">Record: 1 of {deletedMembers.length}</span>
-                <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1 rounded-md flex items-center gap-2">
+                <button className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-1 rounded-md flex items-center gap-2">
                   <Search className="w-4 h-4" />
                   Search
                 </button>
@@ -315,7 +331,7 @@ export default function EditedDeletedPage() {
               </div>
               <div className="mt-4 flex items-center justify-between">
                 <span className="text-sm text-gray-600">Record: 1 of {deletedDaybook.length}</span>
-                <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1 rounded-md flex items-center gap-2">
+                <button className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-1 rounded-md flex items-center gap-2">
                   <Search className="w-4 h-4" />
                   Search
                 </button>
@@ -327,4 +343,6 @@ export default function EditedDeletedPage() {
     </div>
   )
 }
+
+
 

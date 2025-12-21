@@ -23,9 +23,12 @@ export default function CDLedgerPage() {
   })
   const [ledgerTransactions, setLedgerTransactions] = useState<LedgerTransaction[]>([])
   const [accounts, setAccounts] = useState<CDLoan[]>([])
+  const [currentTime, setCurrentTime] = useState<string>('')
 
   useEffect(() => {
     fetchAccounts()
+    // Set current time on client side only to avoid hydration mismatch
+    setCurrentTime(new Date().toLocaleString())
   }, [])
 
   useEffect(() => {
@@ -117,18 +120,18 @@ export default function CDLedgerPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-blue-600 text-white shadow-lg">
+      <div className="bg-orange-500 text-white shadow-lg">
         <div className="container mx-auto px-6 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <button onClick={() => router.back()} className="hover:bg-blue-700 p-2 rounded">
+              <button onClick={() => router.back()} className="hover:bg-orange-600 p-2 rounded">
                 <ArrowLeft className="w-5 h-5" />
               </button>
               <h1 className="text-2xl font-bold">CD LEDGER</h1>
             </div>
             <div className="text-right">
               <div className="text-sm">User Name: RAMESH</div>
-              <div className="text-sm">{new Date().toLocaleString()}</div>
+              <div className="text-sm">{currentTime || 'Loading...'}</div>
             </div>
           </div>
         </div>
@@ -145,7 +148,7 @@ export default function CDLedgerPage() {
           />
           <button
             onClick={() => router.push('/reports/stbd-ledger')}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
+            className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-md"
           >
             Goto STBD Ledger
           </button>
@@ -378,7 +381,7 @@ export default function CDLedgerPage() {
                 <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md">
                   Renewal Account
                 </button>
-                <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">
+                <button className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-md">
                   Partial Payment and Renewal
                 </button>
                 <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md">
@@ -455,11 +458,11 @@ export default function CDLedgerPage() {
                 <Save className="w-5 h-5" />
                 Save
               </button>
-              <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md flex items-center gap-2">
+              <button className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-md flex items-center gap-2">
                 <RefreshCw className="w-5 h-5" />
                 Refresh
               </button>
-              <button className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-md flex items-center gap-2">
+              <button className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-md flex items-center gap-2">
                 <FileText className="w-5 h-5" />
                 Open Report
               </button>
@@ -586,7 +589,7 @@ export default function CDLedgerPage() {
                       <td className="px-2 py-2 border text-right">{formatCurrency(creditTotal)}</td>
                       <td className="px-2 py-2 border text-right">{formatCurrency(debitTotal)}</td>
                     </tr>
-                    <tr className="bg-blue-50 font-bold">
+                    <tr className="bg-orange-50 font-bold">
                       <td colSpan={3} className="px-2 py-2 border">Balance:</td>
                       <td className="px-2 py-2 border text-right">{formatCurrency(balance)}</td>
                     </tr>
@@ -600,3 +603,5 @@ export default function CDLedgerPage() {
     </div>
   )
 }
+
+

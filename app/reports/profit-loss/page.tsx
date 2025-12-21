@@ -66,11 +66,11 @@ export default function ProfitLossPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-blue-600 text-white shadow-lg">
+      <div className="bg-orange-500 text-white shadow-lg">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <button onClick={() => router.back()} className="hover:bg-blue-700 p-2 rounded">
+              <button onClick={() => router.back()} className="hover:bg-orange-600 p-2 rounded">
                 <ArrowLeft className="w-5 h-5" />
               </button>
               <h1 className="text-2xl font-bold">TIRUMALA FINANCE Profit and Loss Statement</h1>
@@ -173,9 +173,9 @@ export default function ProfitLossPage() {
                 <div className="text-sm text-gray-600 mb-1">Total Expenses</div>
                 <div className="text-2xl font-bold text-red-700">{formatCurrency(totalExpenses)}</div>
               </div>
-              <div className="bg-blue-50 rounded-lg p-4">
+              <div className="bg-orange-50 rounded-lg p-4">
                 <div className="text-sm text-gray-600 mb-1">Total Profit</div>
-                <div className="text-2xl font-bold text-blue-700">{formatCurrency(totalProfit)}</div>
+                <div className="text-2xl font-bold text-orange-600">{formatCurrency(totalProfit)}</div>
               </div>
               <div className="bg-purple-50 rounded-lg p-4">
                 <div className="text-sm text-gray-600 mb-1">Share Value</div>
@@ -192,3 +192,5 @@ export default function ProfitLossPage() {
     </div>
   )
 }
+
+

@@ -23,9 +23,12 @@ export default function STBDLedgerPage() {
   const [ledgerTransactions, setLedgerTransactions] = useState<LedgerTransaction[]>([])
   const [accounts, setAccounts] = useState<STBDLoan[]>([])
   const [activeTab, setActiveTab] = useState<'loan' | 'surity' | 'partner'>('loan')
+  const [currentTime, setCurrentTime] = useState<string>('')
 
   useEffect(() => {
     fetchAccounts()
+    // Set current time on client side only to avoid hydration mismatch
+    setCurrentTime(new Date().toLocaleString())
   }, [])
 
   useEffect(() => {
@@ -128,18 +131,18 @@ export default function STBDLedgerPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-blue-600 text-white shadow-lg">
+      <div className="bg-orange-500 text-white shadow-lg">
         <div className="container mx-auto px-6 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <button onClick={() => router.back()} className="hover:bg-blue-700 p-2 rounded">
+              <button onClick={() => router.back()} className="hover:bg-orange-600 p-2 rounded">
                 <ArrowLeft className="w-5 h-5" />
               </button>
               <h1 className="text-2xl font-bold">STBD LEDGER</h1>
             </div>
             <div className="text-right">
               <div className="text-sm">User Name: RAMESH</div>
-              <div className="text-sm">{new Date().toLocaleString()}</div>
+              <div className="text-sm">{currentTime || 'Loading...'}</div>
             </div>
           </div>
         </div>
@@ -156,7 +159,7 @@ export default function STBDLedgerPage() {
           />
           <button
             onClick={() => router.push('/reports/cd-ledger')}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
+            className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-md"
           >
             Goto CD Ledger
           </button>
@@ -360,7 +363,7 @@ export default function STBDLedgerPage() {
                 </button>
                 <button
                   onClick={handleSave}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md flex items-center gap-2"
+                  className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-md flex items-center gap-2"
                 >
                   <Save className="w-4 h-4" />
                   Save
@@ -424,7 +427,7 @@ export default function STBDLedgerPage() {
                 <button
                   onClick={() => setActiveTab('loan')}
                   className={`flex-1 px-4 py-2 rounded-md ${
-                    activeTab === 'loan' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'
+                    activeTab === 'loan' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700'
                   }`}
                 >
                   Loan Person
@@ -432,7 +435,7 @@ export default function STBDLedgerPage() {
                 <button
                   onClick={() => setActiveTab('surity')}
                   className={`flex-1 px-4 py-2 rounded-md ${
-                    activeTab === 'surity' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'
+                    activeTab === 'surity' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700'
                   }`}
                 >
                   Surity Person
@@ -440,7 +443,7 @@ export default function STBDLedgerPage() {
                 <button
                   onClick={() => setActiveTab('partner')}
                   className={`flex-1 px-4 py-2 rounded-md ${
-                    activeTab === 'partner' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'
+                    activeTab === 'partner' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700'
                   }`}
                 >
                   Partner
@@ -483,7 +486,7 @@ export default function STBDLedgerPage() {
                       <td className="px-2 py-2 border text-right">{formatCurrency(creditTotal)}</td>
                       <td className="px-2 py-2 border text-right">{formatCurrency(debitTotal)}</td>
                     </tr>
-                    <tr className="bg-blue-50 font-bold">
+                    <tr className="bg-orange-50 font-bold">
                       <td className="px-2 py-2 border">Balance:</td>
                       <td colSpan={2} className="px-2 py-2 border text-right">{formatCurrency(balance)}</td>
                     </tr>
@@ -497,3 +500,5 @@ export default function STBDLedgerPage() {
     </div>
   )
 }
+
+

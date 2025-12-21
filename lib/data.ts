@@ -217,6 +217,11 @@ export async function getPartners(): Promise<Partner[]> {
       name: p.name,
       phone: p.phone,
       address: p.address,
+      partnerId: p.partner_id,
+      isMD: p.is_md || false,
+      mdName: p.md_name,
+      village: p.village,
+      homePhone: p.home_phone,
     }));
   } catch (error) {
     console.error('Error fetching partners:', error);
@@ -226,20 +231,108 @@ export async function getPartners(): Promise<Partner[]> {
 
 export async function savePartner(partner: Partner): Promise<void> {
   try {
-    const partnerData = {
-      id: partner.id,
+    const partnerData: any = {
       name: partner.name,
       phone: partner.phone || null,
       address: partner.address || null,
+      partner_id: partner.partnerId || null,
+      is_md: partner.isMD || false,
+      md_name: partner.mdName || null,
+      village: partner.village || null,
+      home_phone: partner.homePhone || null,
     };
+    
+    // If partner has an id, include it for update; otherwise let database generate it
+    if (partner.id) {
+      partnerData.id = partner.id;
+    }
     
     const { error } = await supabase
       .from('partners')
-      .upsert(partnerData, { onConflict: 'id' });
+      .upsert(partnerData, { onConflict: partner.id ? 'id' : undefined });
 
     if (error) throw error;
   } catch (error) {
     console.error('Error saving partner:', error);
+    throw error;
+  }
+}
+
+export async function getCustomers(): Promise<any[]> {
+  try {
+    if (!isSupabaseConfigured()) {
+      console.warn('Supabase is not configured. Returning empty array.');
+      return [];
+    }
+
+    const { data, error } = await supabase
+      .from('customers')
+      .select('*')
+      .order('customer_id', { ascending: true });
+
+    if (error) {
+      console.error('Supabase error fetching customers:', error);
+      if (error.code === 'PGRST116' || error.message?.includes('relation') || error.message?.includes('does not exist')) {
+        console.warn('Customers table does not exist yet. Please run the database schema.');
+        return [];
+      }
+      throw error;
+    }
+    return (data || []).map((c: any) => ({
+      id: c.id,
+      customerId: c.customer_id,
+      aadhaar: c.aadhaar,
+      name: c.name,
+      father: c.father,
+      address: c.address,
+      village: c.village,
+      mandal: c.mandal,
+      district: c.district,
+      phone1: c.phone1,
+      phone2: c.phone2,
+      imageUrl: c.image_url,
+    }));
+  } catch (error: any) {
+    console.error('Error fetching customers:', error);
+    return [];
+  }
+}
+
+export async function saveCustomer(customer: any): Promise<void> {
+  try {
+    if (!isSupabaseConfigured()) {
+      throw new Error('Supabase is not configured');
+    }
+
+    const customerData: any = {
+      customer_id: customer.customerId,
+      aadhaar: customer.aadhaar || null,
+      name: customer.name,
+      father: customer.father || null,
+      address: customer.address,
+      village: customer.village || null,
+      mandal: customer.mandal || null,
+      district: customer.district || null,
+      phone1: customer.phone1 || null,
+      phone2: customer.phone2 || null,
+    };
+
+    // Only include image_url if the column exists (to avoid errors during migration)
+    if (customer.imageUrl !== undefined) {
+      customerData.image_url = customer.imageUrl || null;
+    }
+
+    if (customer.id) {
+      customerData.id = customer.id;
+    }
+
+    const { error } = await supabase
+      .from('customers')
+      .upsert(customerData, { onConflict: customer.id ? 'id' : 'customer_id' });
+
+    if (error) throw error;
+  } catch (error) {
+    console.error('Error saving customer:', error);
     throw error;
   }
 }

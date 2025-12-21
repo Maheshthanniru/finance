@@ -56,6 +56,11 @@ export interface Partner {
   name: string;
   phone?: string;
   address?: string;
+  partnerId?: number;
+  isMD?: boolean;
+  mdName?: string;
+  village?: string;
+  homePhone?: string;
 }
 
 export interface AccountSummary {

@@ -71,11 +71,11 @@ export default function FinalStatementPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-blue-600 text-white shadow-lg">
+      <div className="bg-orange-500 text-white shadow-lg">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <button onClick={() => router.back()} className="hover:bg-blue-700 p-2 rounded">
+              <button onClick={() => router.back()} className="hover:bg-orange-600 p-2 rounded">
                 <ArrowLeft className="w-5 h-5" />
               </button>
               <h1 className="text-2xl font-bold">Final Statement</h1>
@@ -230,7 +230,7 @@ export default function FinalStatementPage() {
                       <td className="px-3 py-2 border">Debit Total:</td>
                       <td className="px-3 py-2 border text-right">{formatCurrency(debitTotal)}</td>
                     </tr>
-                    <tr className="bg-blue-50">
+                    <tr className="bg-orange-50">
                       <td className="px-3 py-2 border">Opening Cash Balance</td>
                       <td className="px-3 py-2 border text-right">{formatCurrency(openingCashBalance)}</td>
                       <td className="px-3 py-2 border">Closing Cash Balance:</td>
@@ -256,3 +256,5 @@ export default function FinalStatementPage() {
     </div>
   )
 }
+
+

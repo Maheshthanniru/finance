@@ -14,6 +14,12 @@ export default function EditLoansPage() {
   const [formData, setFormData] = useState<Partial<Loan>>({})
   const [isGeneralModalOpen, setIsGeneralModalOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [currentTime, setCurrentTime] = useState<string>('')
+
+  useEffect(() => {
+    // Set current time on client side only to avoid hydration mismatch
+    setCurrentTime(new Date().toLocaleString())
+  }, [])
 
   const handleSearch = async () => {
     if (!searchTerm.trim()) {
@@ -114,18 +120,18 @@ export default function EditLoansPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-blue-600 text-white shadow-lg">
+      <div className="bg-orange-500 text-white shadow-lg">
         <div className="container mx-auto px-6 py-3">
           <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <button onClick={() => router.back()} className="hover:bg-blue-700 p-2 rounded">
+            <button onClick={() => router.back()} className="hover:bg-orange-600 p-2 rounded">
               <ArrowLeft className="w-5 h-5" />
             </button>
             <h1 className="text-2xl font-bold">Edit Loans</h1>
             </div>
             <div className="text-right">
               <div className="text-sm">User Name: RAMESH</div>
-              <div className="text-sm">{new Date().toLocaleString()}</div>
+              <div className="text-sm">{currentTime || 'Loading...'}</div>
             </div>
           </div>
         </div>
@@ -153,7 +159,7 @@ export default function EditLoansPage() {
                     <button
                       onClick={handleSearch}
                       disabled={loading}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md flex items-center gap-2 disabled:opacity-50"
+                      className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-md flex items-center gap-2 disabled:opacity-50"
                     >
                       <Search className="w-4 h-4" />
                       {loading ? 'Searching...' : 'Search'}
@@ -188,7 +194,7 @@ export default function EditLoansPage() {
                         <tr
                           key={loan.id}
                           className={`border-t hover:bg-gray-50 cursor-pointer ${
-                            selectedLoan?.id === loan.id ? 'bg-blue-50' : ''
+                            selectedLoan?.id === loan.id ? 'bg-orange-50' : ''
                           }`}
                           onClick={() => handleSelectLoan(loan)}
                         >
@@ -457,7 +463,7 @@ export default function EditLoansPage() {
                   </button>
                   <button
                     onClick={() => setIsGeneralModalOpen(true)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-md"
+                    className="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-6 rounded-md"
                   >
                     General
                   </button>
@@ -485,3 +491,5 @@ export default function EditLoansPage() {
     </div>
   )
 }
+
+

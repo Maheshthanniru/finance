@@ -1,13 +1,12 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
 import { 
   FileText, 
   Edit, 
   Users, 
-  Search, 
-  Calculator, 
+  Search as SearchIcon, 
+  Calculator as CalculatorIcon, 
   DollarSign,
   BookOpen,
   BarChart3,
@@ -18,24 +17,40 @@ import {
   Calendar
 } from 'lucide-react'
 
-export default function Home() {
-  const router = useRouter()
-  const [currentDate] = useState(new Date().toLocaleDateString('en-GB', { 
-    day: '2-digit', 
-    month: 'short', 
-    year: '2-digit' 
-  }).replace(/ /g, '-'))
+type MenuItem = {
+  name: string
+  icon: any
+  path: string
+}
 
-  const newEntries = [
+export default function Home() {
+  const [currentDate, setCurrentDate] = useState<string>('')
+  const [activeView, setActiveView] = useState<string | null>(null)
+
+  // Set date only on client side to avoid hydration mismatch
+  useEffect(() => {
+    const date = new Date()
+    const formatted = date.toLocaleDateString('en-GB', { 
+      day: '2-digit', 
+      month: 'short', 
+      year: '2-digit' 
+    }).replace(/ /g, '-')
+    setCurrentDate(formatted)
+  }, [])
+
+  const newEntries: MenuItem[] = [
     { name: 'Loans Entry Form', icon: FileText, path: '/loans/new' },
     { name: 'Edit', icon: Edit, path: '/loans/edit' },
+    { name: 'New Partner Entry', icon: UserPlus, path: '/partners/new' },
     { name: 'Partners', icon: Users, path: '/partners' },
-    { name: 'Search', icon: Search, path: '/search' },
-    { name: 'General Calculation', icon: Calculator, path: '/calculator' },
+    { name: 'New Customer Entry', icon: UserPlus, path: '/customers/new' },
+    { name: 'Search', icon: SearchIcon, path: '/search' },
+    { name: 'Aadhaar Search', icon: SearchIcon, path: '/search/aadhaar' },
+    { name: 'Calculator', icon: CalculatorIcon, path: '/calculator' },
     { name: 'Capital Entry form', icon: DollarSign, path: '/capital' },
   ]
 
-  const reports = [
+  const reports: MenuItem[] = [
     { name: 'Day Book', icon: BookOpen, path: '/reports/daybook' },
     { name: 'General Ledger', icon: FileText, path: '/reports/ledger' },
     { name: 'Phone Numbers Edit Form', icon: FileText, path: '/reports/phone-numbers' },
@@ -53,73 +68,114 @@ export default function Home() {
     { name: 'Edited Deleted Records', icon: FileText, path: '/reports/edited-deleted' },
   ]
 
+  const allMenuItems = [
+    { section: 'New Entries', items: newEntries },
+    { section: 'Reports', items: reports },
+  ]
+
+  const handleMenuClick = (item: MenuItem) => {
+    setActiveView(item.path)
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex flex-col">
       {/* Header */}
       <div className="bg-orange-500 text-white shadow-lg">
-        <div className="container mx-auto px-6 py-4">
+        <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <h1 className="text-3xl font-bold">TIRUMALA FINANCE</h1>
             <div className="text-right">
               <div className="text-sm opacity-90">Admin</div>
-              <div className="text-lg font-semibold">Date: {currentDate}</div>
+              <div className="text-lg font-semibold">Date: {currentDate || 'Loading...'}</div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="container mx-auto px-6 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* New Entries Section */}
-          <div className="lg:col-span-1">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">New Entries</h2>
-            <div className="space-y-3">
-              {newEntries.map((item) => {
-                const Icon = item.icon
-                return (
-                  <button
-                    key={item.name}
-                    onClick={() => router.push(item.path)}
-                    className="w-full bg-white hover:bg-gray-50 text-gray-800 font-semibold py-4 px-6 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-3 border border-gray-200"
-                  >
-                    <Icon className="w-5 h-5 text-orange-500" />
-                    <span>{item.name}</span>
-                  </button>
-                )
-              })}
-            </div>
+      {/* Main Content with Sidebar */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left Sidebar */}
+        <div className="w-64 bg-white shadow-lg overflow-y-auto">
+          <div className="p-4">
+            {allMenuItems.map((section, sectionIndex) => (
+              <div key={sectionIndex} className="mb-6">
+                <h2 className="text-lg font-bold text-gray-800 mb-3 px-2">
+                  {section.section}
+                </h2>
+                <div className="space-y-1">
+                  {section.items.map((item) => {
+                    const Icon = item.icon
+                    const isActive = activeView === item.path
+                    return (
+                      <button
+                        key={item.name}
+                        onClick={() => handleMenuClick(item)}
+                        className={`w-full font-medium py-2.5 px-3 rounded-md transition-all duration-200 flex items-center gap-3 border text-left ${
+                          isActive
+                            ? 'bg-orange-500 text-white border-orange-600 shadow-sm'
+                            : 'bg-white hover:bg-orange-50 text-gray-800 border-gray-200 hover:border-orange-300 hover:shadow-sm'
+                        }`}
+                      >
+                        <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white' : 'text-orange-500'}`} />
+                        <span className="text-sm">{item.name}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
+        </div>
 
-          {/* Reports Section */}
-          <div className="lg:col-span-2">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">Reports</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {reports.map((item) => {
-                const Icon = item.icon
-                return (
-                  <button
-                    key={item.name}
-                    onClick={() => router.push(item.path)}
-                    className="bg-white hover:bg-gray-50 text-gray-800 font-semibold py-4 px-6 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-3 border border-gray-200"
-                  >
-                    <Icon className="w-5 h-5 text-orange-500" />
-                    <span>{item.name}</span>
-                  </button>
-                )
-              })}
+        {/* Main Content Area */}
+        <div className="flex-1 overflow-y-auto bg-gray-50">
+          {activeView ? (
+            <div className="h-full w-full">
+              <iframe
+                src={activeView}
+                className="w-full h-full border-0"
+                title="Content Frame"
+                style={{ minHeight: '100%' }}
+              />
             </div>
-          </div>
+          ) : (
+            <div className="p-8">
+              <div className="max-w-4xl mx-auto">
+                <div className="bg-white rounded-lg shadow-md p-8">
+                  <h2 className="text-3xl font-bold text-gray-800 mb-4">Welcome to TIRUMALA FINANCE</h2>
+                  <p className="text-gray-600 mb-6">
+                    Select an option from the left sidebar to get started.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                    <div className="bg-orange-50 p-4 rounded-lg">
+                      <h3 className="font-semibold text-gray-800 mb-2">Quick Actions</h3>
+                      <p className="text-sm text-gray-600">
+                        Use the sidebar to access all features including loan entry, reports, and management tools.
+                      </p>
+                    </div>
+                    <div className="bg-orange-50 p-4 rounded-lg">
+                      <h3 className="font-semibold text-gray-800 mb-2">Reports & Analytics</h3>
+                      <p className="text-sm text-gray-600">
+                        View financial reports, ledgers, and business analytics from the Reports section.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Footer */}
-      <div className="bg-orange-500 text-white mt-8">
-        <div className="container mx-auto px-6 py-4 text-center">
+      <div className="bg-orange-500 text-white">
+        <div className="px-6 py-4 text-center">
           <p className="text-sm">Gaimel, Dist: Siddipet, Telangana</p>
         </div>
       </div>
     </div>
   )
 }
+
+
 

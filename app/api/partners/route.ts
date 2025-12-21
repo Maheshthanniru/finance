@@ -38,9 +38,17 @@ export async function DELETE(request: NextRequest) {
     if (!id) {
       return NextResponse.json({ error: 'Partner ID is required' }, { status: 400 })
     }
-    // Delete partner logic would go here
+    
+    const { supabase } = await import('@/lib/supabase')
+    const { error } = await supabase
+      .from('partners')
+      .delete()
+      .eq('id', id)
+    
+    if (error) throw error
     return NextResponse.json({ success: true })
   } catch (error) {
+    console.error('Error deleting partner:', error)
     return NextResponse.json({ error: 'Failed to delete partner' }, { status: 500 })
   }
 }

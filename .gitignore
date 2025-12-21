@@ -38,3 +38,17 @@ next-env.d.ts
 /data/*.json
 !data/.gitkeep
 
+# python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+
