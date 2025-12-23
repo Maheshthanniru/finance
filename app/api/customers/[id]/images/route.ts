@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseClient } from '@/lib/supabase'
 
 const BUCKET_NAME = 'loan-images' // Using existing bucket, or create 'customer-images' if preferred
 
@@ -8,6 +8,7 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
+    const supabase = getSupabaseClient()
     const formData = await request.formData()
     const file = formData.get('file') as File
 
@@ -96,6 +97,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    const supabase = getSupabaseClient()
     // Get current image URL from database
     const { data: customer, error: fetchError } = await supabase
       .from('customers')

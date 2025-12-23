@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseClient } from '@/lib/supabase'
 
 const BUCKET_NAME = 'loan-images'
 
@@ -39,6 +39,7 @@ export async function POST(
     const buffer = Buffer.from(arrayBuffer)
 
     // Upload to Supabase Storage
+    const supabase = getSupabaseClient()
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from(BUCKET_NAME)
       .upload(fileName, buffer, {
@@ -84,6 +85,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    const supabase = getSupabaseClient()
     const searchParams = request.nextUrl.searchParams
     const imageType = searchParams.get('imageType')
 

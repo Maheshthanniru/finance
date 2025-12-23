@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseClient } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
+    const supabase = getSupabaseClient()
     const searchParams = request.nextUrl.searchParams
     const fromDate = searchParams.get('fromDate')
     const toDate = searchParams.get('toDate')

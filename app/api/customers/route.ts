@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCustomers, saveCustomer } from '@/lib/data'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseClient } from '@/lib/supabase'
 
 export async function GET() {
   try {
@@ -71,6 +71,7 @@ export async function DELETE(request: NextRequest) {
     if (!id) {
       return NextResponse.json({ error: 'Customer ID is required' }, { status: 400 })
     }
+    const supabase = getSupabaseClient()
     const { error } = await supabase
       .from('customers')
       .delete()
