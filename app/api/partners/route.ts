@@ -13,11 +13,24 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    // Check if Supabase is configured
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      console.error('❌ Supabase environment variables are missing!')
+      return NextResponse.json({ 
+        error: 'Database not configured',
+        message: 'Supabase environment variables are not set. Please configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel environment variables.'
+      }, { status: 500 })
+    }
+
     const partner: Partner = await request.json()
     await savePartner(partner)
     return NextResponse.json({ success: true, partner })
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to save partner' }, { status: 500 })
+  } catch (error: any) {
+    console.error('Error saving partner:', error)
+    return NextResponse.json({ 
+      error: 'Failed to save partner',
+      details: error.message || 'Unknown error'
+    }, { status: 500 })
   }
 }
 
@@ -33,7 +46,7 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
+    const searchParams = request.nextUrl.searchParams
     const id = searchParams.get('id')
     if (!id) {
       return NextResponse.json({ error: 'Partner ID is required' }, { status: 400 })

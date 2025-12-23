@@ -124,11 +124,14 @@ export default function LoansEntryForm() {
         alert('Loan saved successfully!')
         router.push('/')
       } else {
-        alert('Error saving loan')
+        const errorData = await response.json().catch(() => ({}))
+        const errorMessage = errorData.message || errorData.error || 'Error saving loan'
+        console.error('Save error response:', errorData)
+        alert(`Error: ${errorMessage}`)
       }
     } catch (error) {
       console.error('Error saving loan:', error)
-      alert('Error saving loan')
+      alert('Error saving loan. Please check your connection and try again.')
     }
   }
 

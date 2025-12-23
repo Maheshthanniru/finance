@@ -94,12 +94,14 @@ export default function NewPartnerPage() {
         })
         fetchPartners()
       } else {
-        const error = await response.json()
-        alert(error.error || 'Error saving partner')
+        const errorData = await response.json().catch(() => ({}))
+        const errorMessage = errorData.message || errorData.error || 'Error saving partner'
+        console.error('Save error response:', errorData)
+        alert(`Error: ${errorMessage}`)
       }
     } catch (error) {
       console.error('Error saving partner:', error)
-      alert('Error saving partner')
+      alert('Error saving partner. Please check your connection and try again.')
     } finally {
       setLoading(false)
     }

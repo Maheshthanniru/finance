@@ -14,6 +14,15 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    // Check if Supabase is configured
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      console.error('❌ Supabase environment variables are missing!')
+      return NextResponse.json({ 
+        error: 'Database not configured',
+        message: 'Supabase environment variables are not set. Please configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel environment variables.'
+      }, { status: 500 })
+    }
+
     const customer = await request.json()
     await saveCustomer(customer)
     
@@ -57,7 +66,7 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
+    const searchParams = request.nextUrl.searchParams
     const id = searchParams.get('id')
     if (!id) {
       return NextResponse.json({ error: 'Customer ID is required' }, { status: 400 })

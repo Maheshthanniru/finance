@@ -124,9 +124,10 @@ export default function NewCustomerPage() {
         await fetchCustomers()
         console.log('Customer saved. Total customers:', customers.length + 1)
       } else {
-        const errorData = await response.json()
+        const errorData = await response.json().catch(() => ({}))
+        const errorMessage = errorData.message || errorData.error || 'Error saving customer'
         console.error('Save error response:', errorData)
-        alert(errorData.error || 'Error saving customer')
+        alert(`Error: ${errorMessage}`)
       }
     } catch (error) {
       console.error('Error saving customer:', error)
