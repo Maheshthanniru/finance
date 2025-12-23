@@ -352,7 +352,7 @@ export async function getDailyReport(date: string): Promise<DailyReport> {
     
     const accountSummary: { [key: string]: { credit: number; debit: number } } = {};
     
-    transactionList.forEach(t => {
+    transactionList.forEach((t: Transaction) => {
       if (!accountSummary[t.accountName]) {
         accountSummary[t.accountName] = { credit: 0, debit: 0 };
       }
@@ -360,8 +360,8 @@ export async function getDailyReport(date: string): Promise<DailyReport> {
       accountSummary[t.accountName].debit += t.debit;
     });
 
-    const creditTotal = transactionList.reduce((sum, t) => sum + t.credit, 0);
-    const debitTotal = transactionList.reduce((sum, t) => sum + t.debit, 0);
+    const creditTotal = transactionList.reduce((sum: number, t: Transaction) => sum + t.credit, 0);
+    const debitTotal = transactionList.reduce((sum: number, t: Transaction) => sum + t.debit, 0);
 
     // Calculate opening balance (sum of all previous transactions)
     const { data: allTransactions } = await supabase
@@ -372,8 +372,8 @@ export async function getDailyReport(date: string): Promise<DailyReport> {
       .order('entry_time', { ascending: true });
 
     const allTransactionList = (allTransactions || []).map(mapTransactionFromDb);
-    const previousTransactions = allTransactionList.filter(t => t.date < date);
-    const openingBalance = previousTransactions.reduce((sum, t) => sum + t.credit - t.debit, 0);
+    const previousTransactions = allTransactionList.filter((t: Transaction) => t.date < date);
+    const openingBalance = previousTransactions.reduce((sum: number, t: Transaction) => sum + t.credit - t.debit, 0);
 
     const closingBalance = openingBalance + creditTotal - debitTotal;
     const grandTotal = closingBalance;
