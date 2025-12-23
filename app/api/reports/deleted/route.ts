@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
+    const searchParams = request.nextUrl.searchParams
     const fromDate = searchParams.get('fromDate')
     const toDate = searchParams.get('toDate')
     const month = searchParams.get('month')
