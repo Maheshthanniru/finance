@@ -84,7 +84,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { searchParams } = new URL(request.url)
+    const searchParams = request.nextUrl.searchParams
     const imageType = searchParams.get('imageType')
 
     if (!imageType) {

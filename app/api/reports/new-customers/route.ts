@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getLoans } from '@/lib/data'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
+    const searchParams = request.nextUrl.searchParams
     const fromDate = searchParams.get('fromDate') || '2013-04-25'
     const toDate = searchParams.get('toDate') || new Date().toISOString().split('T')[0]
     const partner = searchParams.get('partner')

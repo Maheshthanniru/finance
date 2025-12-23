@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getLoans, saveLoan, deleteLoan } from '@/lib/data'
 import { Loan } from '@/types'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     // Check if Supabase is configured
@@ -15,7 +17,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const { searchParams } = new URL(request.url)
+    const searchParams = request.nextUrl.searchParams
     const type = searchParams.get('type')
     const number = searchParams.get('number')
     
@@ -67,7 +69,7 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
+    const searchParams = request.nextUrl.searchParams
     const id = searchParams.get('id')
     if (!id) {
       return NextResponse.json({ error: 'Loan ID is required' }, { status: 400 })

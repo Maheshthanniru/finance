@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getLoans } from '@/lib/data'
 import { LoanSearchResult } from '@/types'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
+    const searchParams = request.nextUrl.searchParams
     const aadhaar = searchParams.get('aadhaar')
     const name = searchParams.get('name')
     const fromDate = searchParams.get('fromDate')
