@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       credit: data.credit || 0,
       debit: data.debit || 0,
       userName: 'RAMESH',
-      entryTime: new Date().toLocaleString(),
+      entryTime: new Date().toISOString(),
     }
     await saveTransaction(transaction)
     return NextResponse.json({ success: true, transaction })

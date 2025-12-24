@@ -110,7 +110,7 @@ export default function LoansEntryForm() {
       partnerId: formData.partnerId,
       partnerName: formData.partnerName,
       userName: 'RAMESH', // This would come from auth in production
-      entryTime: new Date().toLocaleString(),
+      entryTime: new Date().toISOString(),
     }
 
     try {
