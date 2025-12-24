@@ -339,6 +339,10 @@ export async function saveCustomer(customer: any): Promise<void> {
 
 export async function getDailyReport(date: string): Promise<DailyReport> {
   try {
+    if (!date) {
+      throw new Error('Date is required');
+    }
+
     const { data: transactions, error } = await supabase
       .from('transactions')
       .select('*')
@@ -356,24 +360,28 @@ export async function getDailyReport(date: string): Promise<DailyReport> {
       if (!accountSummary[t.accountName]) {
         accountSummary[t.accountName] = { credit: 0, debit: 0 };
       }
-      accountSummary[t.accountName].credit += t.credit;
-      accountSummary[t.accountName].debit += t.debit;
+      accountSummary[t.accountName].credit += (t.credit || 0);
+      accountSummary[t.accountName].debit += (t.debit || 0);
     });
 
-    const creditTotal = transactionList.reduce((sum: number, t: Transaction) => sum + t.credit, 0);
-    const debitTotal = transactionList.reduce((sum: number, t: Transaction) => sum + t.debit, 0);
+    const creditTotal = transactionList.reduce((sum: number, t: Transaction) => sum + (t.credit || 0), 0);
+    const debitTotal = transactionList.reduce((sum: number, t: Transaction) => sum + (t.debit || 0), 0);
 
     // Calculate opening balance (sum of all previous transactions)
-    const { data: allTransactions } = await supabase
+    const { data: allTransactions, error: allError } = await supabase
       .from('transactions')
       .select('*')
       .eq('is_deleted', false)
       .order('date', { ascending: true })
       .order('entry_time', { ascending: true });
 
+    if (allError) throw allError;
+
     const allTransactionList = (allTransactions || []).map(mapTransactionFromDb);
     const previousTransactions = allTransactionList.filter((t: Transaction) => t.date < date);
-    const openingBalance = previousTransactions.reduce((sum: number, t: Transaction) => sum + t.credit - t.debit, 0);
+    const openingBalance = previousTransactions.reduce((sum: number, t: Transaction) => {
+      return sum + ((t.credit || 0) - (t.debit || 0));
+    }, 0);
 
     const closingBalance = openingBalance + creditTotal - debitTotal;
     const grandTotal = closingBalance;
@@ -383,14 +391,14 @@ export async function getDailyReport(date: string): Promise<DailyReport> {
       transactions: transactionList,
       accountSummary: Object.entries(accountSummary).map(([accountName, totals]) => ({
         accountName,
-        credit: totals.credit,
-        debit: totals.debit,
+        credit: totals.credit || 0,
+        debit: totals.debit || 0,
       })),
-      creditTotal,
-      debitTotal,
-      openingBalance,
-      closingBalance,
-      grandTotal,
+      creditTotal: creditTotal || 0,
+      debitTotal: debitTotal || 0,
+      openingBalance: openingBalance || 0,
+      closingBalance: closingBalance || 0,
+      grandTotal: grandTotal || 0,
     };
   } catch (error) {
     console.error('Error fetching daily report:', error);
@@ -420,5 +428,83 @@ export async function getDayBook(date: string): Promise<DayBookEntry[]> {
   } catch (error) {
     console.error('Error fetching day book:', error);
     return [];
+  }
+}
+
+export async function getGuarantors(): Promise<any[]> {
+  try {
+    if (!isSupabaseConfigured()) {
+      console.warn('Supabase is not configured. Returning empty array.');
+      return [];
+    }
+
+    const { data, error } = await supabase
+      .from('guarantors')
+      .select('*')
+      .order('guarantor_id', { ascending: true });
+
+    if (error) {
+      console.error('Supabase error fetching guarantors:', error);
+      if (error.code === 'PGRST116' || error.message?.includes('relation') || error.message?.includes('does not exist')) {
+        console.warn('Guarantors table does not exist yet. Please run the database schema.');
+        return [];
+      }
+      throw error;
+    }
+    return (data || []).map((g: any) => ({
+      id: g.id,
+      guarantorId: g.guarantor_id,
+      aadhaar: g.aadhaar,
+      name: g.name,
+      father: g.father,
+      address: g.address,
+      village: g.village,
+      mandal: g.mandal,
+      district: g.district,
+      phone1: g.phone1,
+      phone2: g.phone2,
+      imageUrl: g.image_url,
+    }));
+  } catch (error: any) {
+    console.error('Error fetching guarantors:', error);
+    return [];
+  }
+}
+
+export async function saveGuarantor(guarantor: any): Promise<void> {
+  try {
+    if (!isSupabaseConfigured()) {
+      throw new Error('Supabase is not configured');
+    }
+
+    const guarantorData: any = {
+      guarantor_id: guarantor.guarantorId,
+      aadhaar: guarantor.aadhaar || null,
+      name: guarantor.name,
+      father: guarantor.father || null,
+      address: guarantor.address,
+      village: guarantor.village || null,
+      mandal: guarantor.mandal || null,
+      district: guarantor.district || null,
+      phone1: guarantor.phone1 || null,
+      phone2: guarantor.phone2 || null,
+    };
+
+    if (guarantor.imageUrl !== undefined) {
+      guarantorData.image_url = guarantor.imageUrl || null;
+    }
+
+    if (guarantor.id) {
+      guarantorData.id = guarantor.id;
+    }
+
+    const { error } = await supabase
+      .from('guarantors')
+      .upsert(guarantorData, { onConflict: guarantor.id ? 'id' : 'guarantor_id' });
+
+    if (error) throw error;
+  } catch (error) {
+    console.error('Error saving guarantor:', error);
+    throw error;
   }
 }

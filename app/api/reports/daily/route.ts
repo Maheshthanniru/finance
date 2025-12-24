@@ -14,8 +14,12 @@ export async function GET(request: NextRequest) {
 
     const report = await getDailyReport(date)
     return NextResponse.json(report)
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch daily report' }, { status: 500 })
+  } catch (error: any) {
+    console.error('Error in daily report API:', error)
+    return NextResponse.json({ 
+      error: 'Failed to fetch daily report',
+      details: error?.message || 'Unknown error'
+    }, { status: 500 })
   }
 }
 

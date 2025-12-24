@@ -41,17 +41,33 @@ export default function HPLedgerPage() {
   const fetchAccounts = async () => {
     try {
       const response = await fetch('/api/loans?type=HP')
+      if (!response.ok) {
+        throw new Error(`Failed to fetch accounts: ${response.statusText}`)
+      }
       const data = await response.json()
-      setAccounts(data)
+      if (data.error) {
+        console.error('Error from API:', data.error)
+        setAccounts([])
+        return
+      }
+      setAccounts(Array.isArray(data) ? data : [])
     } catch (error) {
       console.error('Error fetching accounts:', error)
+      setAccounts([])
     }
   }
 
   const fetchAccountDetails = async (accountId: string) => {
     try {
       const response = await fetch(`/api/loans/${accountId}`)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch account details: ${response.statusText}`)
+      }
       const data = await response.json()
+      if (data.error) {
+        console.error('Error from API:', data.error)
+        return
+      }
       setFormData(data)
     } catch (error) {
       console.error('Error fetching account details:', error)
@@ -61,18 +77,35 @@ export default function HPLedgerPage() {
   const fetchInstallments = async (accountId: string) => {
     try {
       const response = await fetch(`/api/loans/${accountId}/installments`)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch installments: ${response.statusText}`)
+      }
       const data = await response.json()
-      setInstallments(data)
+      if (data.error) {
+        console.error('Error from API:', data.error)
+        setInstallments([])
+        return
+      }
+      setInstallments(Array.isArray(data) ? data : [])
     } catch (error) {
       console.error('Error fetching installments:', error)
+      setInstallments([])
     }
   }
 
   const fetchLedgerTransactions = async (accountId: string) => {
     try {
       const response = await fetch(`/api/ledger/${accountId}`)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch ledger: ${response.statusText}`)
+      }
       const data = await response.json()
-      setLedgerTransactions(data)
+      if (data.error) {
+        console.error('Error from API:', data.error)
+        setLedgerTransactions([])
+        return
+      }
+      setLedgerTransactions(Array.isArray(data) ? data : [])
     } catch (error) {
       console.error('Error fetching ledger:', error)
     }

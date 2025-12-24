@@ -41,17 +41,33 @@ export default function CDLedgerPage() {
   const fetchAccounts = async () => {
     try {
       const response = await fetch('/api/loans?type=CD')
+      if (!response.ok) {
+        throw new Error(`Failed to fetch accounts: ${response.statusText}`)
+      }
       const data = await response.json()
-      setAccounts(data)
+      if (data.error) {
+        console.error('Error from API:', data.error)
+        setAccounts([])
+        return
+      }
+      setAccounts(Array.isArray(data) ? data : [])
     } catch (error) {
       console.error('Error fetching accounts:', error)
+      setAccounts([])
     }
   }
 
   const fetchAccountDetails = async (accountId: string) => {
     try {
       const response = await fetch(`/api/loans/${accountId}`)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch account details: ${response.statusText}`)
+      }
       const data = await response.json()
+      if (data.error) {
+        console.error('Error from API:', data.error)
+        return
+      }
       setFormData(data)
     } catch (error) {
       console.error('Error fetching account details:', error)
@@ -61,10 +77,19 @@ export default function CDLedgerPage() {
   const fetchLedgerTransactions = async (accountId: string) => {
     try {
       const response = await fetch(`/api/ledger/${accountId}`)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch ledger: ${response.statusText}`)
+      }
       const data = await response.json()
-      setLedgerTransactions(data)
+      if (data.error) {
+        console.error('Error from API:', data.error)
+        setLedgerTransactions([])
+        return
+      }
+      setLedgerTransactions(Array.isArray(data) ? data : [])
     } catch (error) {
       console.error('Error fetching ledger:', error)
+      setLedgerTransactions([])
     }
   }
 

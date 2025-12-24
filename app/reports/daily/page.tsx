@@ -21,9 +21,26 @@ export default function DailyReportPage() {
     try {
       const response = await fetch(`/api/reports/daily?date=${selectedDate}`)
       const data = await response.json()
-      setReport(data)
+      
+      // Check if the response contains an error
+      if (data.error) {
+        console.error('Error fetching report:', data.error)
+        setReport(null)
+        alert(`Error: ${data.error}`)
+        return
+      }
+      
+      // Ensure data has the expected structure
+      if (data && typeof data === 'object' && 'transactions' in data) {
+        setReport(data)
+      } else {
+        console.error('Invalid report data structure:', data)
+        setReport(null)
+      }
     } catch (error) {
       console.error('Error fetching report:', error)
+      setReport(null)
+      alert('Error fetching daily report. Please try again.')
     } finally {
       setLoading(false)
     }

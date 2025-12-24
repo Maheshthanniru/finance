@@ -41,19 +41,33 @@ export default function GeneralLedgerPage() {
 
   useEffect(() => {
     fetchAccountTypes()
+    // Clear selections when dates change
+    setSelectedAccountType('')
+    setSelectedAccount('')
+    setAccounts([])
+    setDetails([])
   }, [fromDate, toDate])
 
   useEffect(() => {
     if (selectedAccountType) {
       fetchAccounts(selectedAccountType)
+      // Clear account selection when account type changes
+      setSelectedAccount('')
+      setDetails([])
+    } else {
+      setAccounts([])
     }
-  }, [selectedAccountType])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAccountType, fromDate, toDate])
 
   useEffect(() => {
     if (selectedAccount) {
       fetchDetails(selectedAccount)
+    } else {
+      setDetails([])
     }
-  }, [selectedAccount])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAccount, fromDate, toDate])
 
   const fetchAccountTypes = async () => {
     setLoading(true)
@@ -71,10 +85,19 @@ export default function GeneralLedgerPage() {
   const fetchAccounts = async (accountType: string) => {
     try {
       const response = await fetch(`/api/reports/ledger/accounts?accountType=${accountType}&fromDate=${fromDate}&toDate=${toDate}`)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch accounts: ${response.statusText}`)
+      }
       const data = await response.json()
-      setAccounts(data)
+      if (data.error) {
+        console.error('Error from API:', data.error)
+        setAccounts([])
+        return
+      }
+      setAccounts(Array.isArray(data) ? data : [])
     } catch (error) {
       console.error('Error fetching accounts:', error)
+      setAccounts([])
     }
   }
 

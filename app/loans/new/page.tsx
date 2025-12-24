@@ -22,13 +22,26 @@ export default function LoansEntryForm() {
   const [currentTime, setCurrentTime] = useState<string>('')
   const [customers, setCustomers] = useState<any[]>([])
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('')
+  const [partners, setPartners] = useState<any[]>([])
+  const [selectedPartnerId, setSelectedPartnerId] = useState<string>('')
+  const [guarantors, setGuarantors] = useState<any[]>([])
+  const [selectedGuarantor1Id, setSelectedGuarantor1Id] = useState<string>('')
+  const [selectedGuarantor2Id, setSelectedGuarantor2Id] = useState<string>('')
 
   useEffect(() => {
     fetchLoans()
     fetchCustomers()
+    fetchPartners()
+    fetchGuarantors()
     // Set current time on client side only to avoid hydration mismatch
     setCurrentTime(new Date().toLocaleString())
   }, [])
+
+  useEffect(() => {
+    // Fetch day book details when date changes
+    fetchDayBookDetails()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.date])
 
   const fetchLoans = async () => {
     try {
@@ -50,6 +63,49 @@ export default function LoansEntryForm() {
     }
   }
 
+  const fetchPartners = async () => {
+    try {
+      const response = await fetch('/api/partners')
+      const data = await response.json()
+      setPartners(data)
+    } catch (error) {
+      console.error('Error fetching partners:', error)
+    }
+  }
+
+  const fetchGuarantors = async () => {
+    try {
+      const response = await fetch('/api/guarantors')
+      const data = await response.json()
+      setGuarantors(data)
+    } catch (error) {
+      console.error('Error fetching guarantors:', error)
+    }
+  }
+
+  const fetchDayBookDetails = async () => {
+    try {
+      const date = formData.date || new Date().toISOString().split('T')[0]
+      const response = await fetch(`/api/reports/daybook?date=${date}`)
+      const data = await response.json()
+      
+      // Map DayBookEntry format to the format expected by the display
+      const formattedData = (data || []).map((entry: any) => ({
+        date: date,
+        account: entry.headOfAccount || entry.account_name || '',
+        particulars: entry.particulars || '',
+        no: entry.number || entry.rno || '',
+        credit: entry.credit || 0,
+        debit: entry.debit || 0,
+      }))
+      
+      setDayBookDetails(formattedData)
+    } catch (error) {
+      console.error('Error fetching day book details:', error)
+      setDayBookDetails([])
+    }
+  }
+
   const handleCustomerSelect = (customerId: string) => {
     setSelectedCustomerId(customerId)
     const customer = customers.find(c => c.id === customerId)
@@ -64,6 +120,40 @@ export default function LoansEntryForm() {
         phone1: customer.phone1 || '',
         phone2: customer.phone2 || '',
         cNo: customer.customerId?.toString() || '',
+      }))
+    }
+  }
+
+  const handlePartnerSelect = (partnerId: string) => {
+    setSelectedPartnerId(partnerId)
+    const partner = partners.find(p => p.id === partnerId)
+    if (partner) {
+      // Auto-fill form with partner data
+      setFormData(prev => ({
+        ...prev,
+        partnerId: partner.id || '',
+        partnerName: partner.name || '',
+      }))
+    }
+  }
+
+  const handleGuarantorSelect = (guarantorNum: 1 | 2, guarantorId: string) => {
+    if (guarantorNum === 1) {
+      setSelectedGuarantor1Id(guarantorId)
+    } else {
+      setSelectedGuarantor2Id(guarantorId)
+    }
+    
+    const guarantor = guarantors.find(g => g.id === guarantorId)
+    if (guarantor) {
+      // Auto-fill form with guarantor data
+      setFormData(prev => ({
+        ...prev,
+        [`guarantor${guarantorNum}`]: {
+          name: guarantor.name || '',
+          aadhaar: guarantor.aadhaar || '',
+          phone: guarantor.phone1 || '',
+        },
       }))
     }
   }
@@ -285,12 +375,31 @@ export default function LoansEntryForm() {
                 />
               </div>
 
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Select Guarantor 1 (Auto-fill)</label>
+                <select
+                  value={selectedGuarantor1Id}
+                  onChange={(e) => handleGuarantorSelect(1, e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
+                >
+                  <option value="">-- Select Guarantor 1 to Auto-fill --</option>
+                  {guarantors.map((guarantor) => (
+                    <option key={guarantor.id} value={guarantor.id}>
+                      {guarantor.guarantorId ? `${guarantor.guarantorId} - ` : ''}{guarantor.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Guarantor 1</label>
                 <input
                   type="text"
                   value={formData.guarantor1?.name || ''}
-                  onChange={(e) => handleGuarantorChange(1, 'name', e.target.value)}
+                  onChange={(e) => {
+                    handleGuarantorChange(1, 'name', e.target.value)
+                    setSelectedGuarantor1Id('') // Clear selection if manually edited
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
               </div>
@@ -300,7 +409,10 @@ export default function LoansEntryForm() {
                 <input
                   type="text"
                   value={formData.guarantor1?.aadhaar || ''}
-                  onChange={(e) => handleGuarantorChange(1, 'aadhaar', e.target.value)}
+                  onChange={(e) => {
+                    handleGuarantorChange(1, 'aadhaar', e.target.value)
+                    setSelectedGuarantor1Id('') // Clear selection if manually edited
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
               </div>
@@ -310,9 +422,28 @@ export default function LoansEntryForm() {
                 <input
                   type="tel"
                   value={formData.guarantor1?.phone || ''}
-                  onChange={(e) => handleGuarantorChange(1, 'phone', e.target.value)}
+                  onChange={(e) => {
+                    handleGuarantorChange(1, 'phone', e.target.value)
+                    setSelectedGuarantor1Id('') // Clear selection if manually edited
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Select Guarantor 2 (Auto-fill)</label>
+                <select
+                  value={selectedGuarantor2Id}
+                  onChange={(e) => handleGuarantorSelect(2, e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
+                >
+                  <option value="">-- Select Guarantor 2 to Auto-fill --</option>
+                  {guarantors.map((guarantor) => (
+                    <option key={guarantor.id} value={guarantor.id}>
+                      {guarantor.guarantorId ? `${guarantor.guarantorId} - ` : ''}{guarantor.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -320,7 +451,10 @@ export default function LoansEntryForm() {
                 <input
                   type="text"
                   value={formData.guarantor2?.name || ''}
-                  onChange={(e) => handleGuarantorChange(2, 'name', e.target.value)}
+                  onChange={(e) => {
+                    handleGuarantorChange(2, 'name', e.target.value)
+                    setSelectedGuarantor2Id('') // Clear selection if manually edited
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
               </div>
@@ -330,7 +464,10 @@ export default function LoansEntryForm() {
                 <input
                   type="text"
                   value={formData.guarantor2?.aadhaar || ''}
-                  onChange={(e) => handleGuarantorChange(2, 'aadhaar', e.target.value)}
+                  onChange={(e) => {
+                    handleGuarantorChange(2, 'aadhaar', e.target.value)
+                    setSelectedGuarantor2Id('') // Clear selection if manually edited
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
               </div>
@@ -340,7 +477,10 @@ export default function LoansEntryForm() {
                 <input
                   type="tel"
                   value={formData.guarantor2?.phone || ''}
-                  onChange={(e) => handleGuarantorChange(2, 'phone', e.target.value)}
+                  onChange={(e) => {
+                    handleGuarantorChange(2, 'phone', e.target.value)
+                    setSelectedGuarantor2Id('') // Clear selection if manually edited
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
               </div>
@@ -397,12 +537,31 @@ export default function LoansEntryForm() {
                 />
               </div>
 
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Select Partner (Auto-fill)</label>
+                <select
+                  value={selectedPartnerId}
+                  onChange={(e) => handlePartnerSelect(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
+                >
+                  <option value="">-- Select Partner to Auto-fill --</option>
+                  {partners.map((partner) => (
+                    <option key={partner.id} value={partner.id}>
+                      {partner.partnerId ? `${partner.partnerId} - ` : ''}{partner.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Partner ID</label>
                 <input
                   type="text"
                   value={formData.partnerId || ''}
-                  onChange={(e) => handleInputChange('partnerId', e.target.value)}
+                  onChange={(e) => {
+                    handleInputChange('partnerId', e.target.value)
+                    setSelectedPartnerId('') // Clear selection if manually edited
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
               </div>
@@ -412,7 +571,10 @@ export default function LoansEntryForm() {
                 <input
                   type="text"
                   value={formData.partnerName || ''}
-                  onChange={(e) => handleInputChange('partnerName', e.target.value)}
+                  onChange={(e) => {
+                    handleInputChange('partnerName', e.target.value)
+                    setSelectedPartnerId('') // Clear selection if manually edited
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
               </div>
@@ -479,12 +641,12 @@ export default function LoansEntryForm() {
                     ) : (
                       dayBookDetails.map((detail, idx) => (
                         <tr key={idx} className="border-t">
-                          <td className="px-2 py-1">{detail.date}</td>
+                          <td className="px-2 py-1">{new Date(detail.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}</td>
                           <td className="px-2 py-1">{detail.account}</td>
                           <td className="px-2 py-1">{detail.particulars}</td>
-                          <td className="px-2 py-1">{detail.no}</td>
-                          <td className="px-2 py-1 text-right">{detail.credit}</td>
-                          <td className="px-2 py-1 text-right">{detail.debit}</td>
+                          <td className="px-2 py-1">{detail.no || '-'}</td>
+                          <td className="px-2 py-1 text-right">{new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(detail.credit)}</td>
+                          <td className="px-2 py-1 text-right">{new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(detail.debit)}</td>
                         </tr>
                       ))
                     )}

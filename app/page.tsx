@@ -44,6 +44,7 @@ export default function Home() {
     { name: 'New Partner Entry', icon: UserPlus, path: '/partners/new' },
     { name: 'Partners', icon: Users, path: '/partners' },
     { name: 'New Customer Entry', icon: UserPlus, path: '/customers/new' },
+    { name: 'New Guarantor Entry', icon: UserPlus, path: '/guarantors/new' },
     { name: 'Search', icon: SearchIcon, path: '/search' },
     { name: 'Aadhaar Search', icon: SearchIcon, path: '/search/aadhaar' },
     { name: 'Calculator', icon: CalculatorIcon, path: '/calculator' },
