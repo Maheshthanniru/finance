@@ -43,8 +43,9 @@ export default function CDLedgerPage() {
     const today = todayDateObj > actualToday ? todayDateObj : actualToday
     
     // CRITICAL: For interest calculation, use ONLY the original loan date from loanDate field
-    // DO NOT use loan.date as fallback - it represents the form's "today" date field, not the original loan date
-    // The original loan date is stored in loanDate field (set from data.loanDate || data.date when fetched)
+    // The database has 'date' field which is the original loan date
+    // When loan is fetched, we preserve it in 'loanDate' field
+    // DO NOT use loan.date as fallback - it's the form's "today" date field, not the original loan date
     let loanDate: Date | null = null
     if (loan.loanDate) {
       const parsedLoanDate = new Date(loan.loanDate + 'T00:00:00')
@@ -52,7 +53,12 @@ export default function CDLedgerPage() {
         loanDate = parsedLoanDate
       }
     }
-    // If loanDate is still null, we cannot calculate interest properly - this should not happen for valid loans
+    
+    // If loanDate is still null, we cannot calculate interest properly
+    // This should not happen for valid loans that were fetched from database
+    if (!loanDate) {
+      console.error('ERROR: Loan date not available for interest calculation. loanDate:', loan.loanDate, 'loan object keys:', Object.keys(loan))
+    }
     const dueDate = loan.dueDate ? new Date(loan.dueDate + 'T00:00:00') : null
     
     // Calculate due days (days between due date and today) - positive if overdue
@@ -69,17 +75,16 @@ export default function CDLedgerPage() {
     // Get rate of interest (use rate if available, otherwise use rateOfInterest, default to 12%)
     const rate = loan.rate || loan.rateOfInterest || 12
     
-    // IMPORTANT: Calculate interest based ONLY on period from LOAN DATE to DUE DATE
+    // IMPORTANT: Calculate interest based ONLY on period from ORIGINAL LOAN DATE to DUE DATE
     // Interest stops accruing at the due date, not at today
+    // CRITICAL: loanDate MUST be the original loan date from database, NOT today's date
     let periodDays = 0
     if (loanDate && dueDate && !isNaN(loanDate.getTime()) && !isNaN(dueDate.getTime())) {
-      // Calculate period from loan date to due date ONLY (not to today)
+      // Calculate period from ORIGINAL loan date to due date ONLY (NOT from today to due date)
       const diffTime = dueDate.getTime() - loanDate.getTime()
       periodDays = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)))
-    }
-    
-    // If period couldn't be calculated from dates, use stored period field or default
-    if (periodDays <= 0) {
+    } else {
+      // If period couldn't be calculated from dates, use stored period field or default
       periodDays = loan.period || 365 // Default to 1 year if no period available
     }
     
@@ -161,9 +166,10 @@ export default function CDLedgerPage() {
         return {
           ...prev,
           ...calculated,
-          // Set loanDate and dueDate if not already set
-          loanDate: prev.loanDate || prev.date,
-          dueDate: calculatedDueDate,
+          // CRITICAL: Preserve loanDate - it's the original loan date from database, never changes
+          loanDate: prev.loanDate, // Explicitly preserve original loan date
+          // Only set dueDate if not already set
+          dueDate: calculatedDueDate || prev.dueDate,
           // Auto-populate receiptNo and rate if not set
           receiptNo: prev.receiptNo || prev.number,
           rate: prev.rate || prev.rateOfInterest,
@@ -193,6 +199,8 @@ export default function CDLedgerPage() {
         
         return {
           ...prev,
+          // CRITICAL: Preserve loanDate - it's the original loan date from database, never changes
+          loanDate: prev.loanDate, // Explicitly preserve original loan date
           dueDays: calculated.dueDays,
           penalty: calculated.penalty,
           totalAmtForRenewal: calculated.totalAmtForRenewal,
@@ -234,17 +242,26 @@ export default function CDLedgerPage() {
         return
       }
       // Set all loan details including images - images will automatically display
-      // IMPORTANT: Preserve the original loan date in loanDate field
-      // data.date is the original loan date from the database
-      // We store it in loanDate so it's not confused with the form's "today" date field
+      // CRITICAL: The database has a 'date' field which is the ORIGINAL loan date
+      // We MUST preserve this as loanDate for interest calculation (NEVER changes)
+      // The form's 'date' field should be "today" for due days calculation (user can change)
+      
+      // The database 'date' field is the original loan date - preserve it in loanDate
+      const originalLoanDate = data.date // Original loan date from DB (always use data.date, database doesn't have loanDate field)
+      
+      // Extract date field before spreading data, so we don't overwrite form's "today" date field
+      const { date: dbOriginalDate, ...loanDataWithoutDate } = data
+      
       setFormData(prev => ({
-        ...data,
+        ...loanDataWithoutDate, // Spread all loan data EXCEPT the original date field
         receiptNo: data.receiptNo || data.number,
         rate: data.rate || data.rateOfInterest,
-        // Always preserve original loan date from database - use loanDate if available, otherwise use date (original loan date)
-        loanDate: data.loanDate || data.date, // This is the ORIGINAL loan date from DB, not the form's "today"
-        // Keep date field as the original loan date too, but user can change it for "today" calculations
-        date: data.date, // Original loan date from DB
+        // CRITICAL: Preserve original loan date from database in loanDate field
+        // This is the ORIGINAL loan date from DB (never changes, used for interest calculation)
+        loanDate: originalLoanDate,
+        // Keep form's "today" date separate - user can change this for due days calculation
+        // Don't overwrite if user has already set it, otherwise use actual today
+        date: prev.date && prev.date !== dbOriginalDate ? prev.date : new Date().toISOString().split('T')[0],
       }))
     } catch (error) {
       console.error('Error fetching account details:', error)
@@ -764,12 +781,13 @@ export default function CDLedgerPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Loan Date</label>
+                  <label className="block text-sm font-medium mb-1">Loan Date <span className="text-xs text-gray-500">(Original loan date - from database)</span></label>
                   <input
                     type="date"
                     value={formData.loanDate || ''}
-                    onChange={(e) => handleInputChange('loanDate', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
+                    title="Original loan date from database - used for interest calculation"
                   />
                 </div>
                 <div>
