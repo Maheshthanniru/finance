@@ -298,14 +298,49 @@ export async function getCustomers(): Promise<any[]> {
   }
 }
 
+export async function getNextCustomerId(): Promise<number> {
+  try {
+    if (!isSupabaseConfigured()) {
+      return 1; // Default to 1 if Supabase is not configured
+    }
+
+    const { data, error } = await supabase
+      .from('customers')
+      .select('customer_id')
+      .order('customer_id', { ascending: false })
+      .limit(1);
+
+    if (error) {
+      console.error('Error fetching max customer ID:', error);
+      return 1; // Default to 1 on error
+    }
+
+    if (!data || data.length === 0) {
+      return 1; // No customers yet, start with 1
+    }
+
+    const maxId = data[0].customer_id || 0;
+    return maxId + 1;
+  } catch (error: any) {
+    console.error('Error getting next customer ID:', error);
+    return 1; // Default to 1 on error
+  }
+}
+
 export async function saveCustomer(customer: any): Promise<void> {
   try {
     if (!isSupabaseConfigured()) {
       throw new Error('Supabase is not configured');
     }
 
+    // Auto-generate customer ID if not provided
+    let customerId = customer.customerId;
+    if (!customerId || customerId <= 0) {
+      customerId = await getNextCustomerId();
+    }
+
     const customerData: any = {
-      customer_id: customer.customerId,
+      customer_id: customerId,
       aadhaar: customer.aadhaar || null,
       name: customer.name,
       father: customer.father || null,
@@ -329,10 +364,26 @@ export async function saveCustomer(customer: any): Promise<void> {
     const { error } = await supabase
       .from('customers')
       .upsert(customerData, { onConflict: customer.id ? 'id' : 'customer_id' });
+    
+    // Update the customer object with the generated ID
+    customer.customerId = customerId;
 
     if (error) throw error;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error saving customer:', error);
+    
+    // Enhance network errors with more context
+    const errorMessage = error.message || ''
+    const errorDetails = error.toString() || ''
+    if (errorMessage.includes('fetch failed') || errorMessage.includes('ENOTFOUND') || errorDetails.includes('ENOTFOUND')) {
+      const enhancedError = new Error(
+        `Database connection failed: Unable to reach Supabase. ${errorMessage}`
+      ) as any
+      enhancedError.details = errorDetails
+      enhancedError.code = 'DATABASE_CONNECTION_ERROR'
+      throw enhancedError
+    }
+    
     throw error;
   }
 }

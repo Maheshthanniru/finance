@@ -42,17 +42,25 @@ export default function NewCustomerPage() {
 
   useEffect(() => {
     fetchCustomers()
+    fetchNextCustomerId()
   }, [])
 
-  useEffect(() => {
-    // Set initial customerId based on existing customers
-    if (customers.length > 0 && (!formData.customerId || formData.customerId === 1)) {
-      const maxCustomerId = Math.max(...customers.map(c => c.customerId || 0), 0)
-      if (maxCustomerId > 0) {
+  const fetchNextCustomerId = async () => {
+    try {
+      const response = await fetch('/api/customers?nextId=true')
+      if (response.ok) {
+        const data = await response.json()
+        setFormData(prev => ({ ...prev, customerId: data.nextCustomerId || 1 }))
+      }
+    } catch (error) {
+      console.error('Error fetching next customer ID:', error)
+      // Fallback: calculate from existing customers
+      if (customers.length > 0) {
+        const maxCustomerId = Math.max(...customers.map(c => c.customerId || 0), 0)
         setFormData(prev => ({ ...prev, customerId: maxCustomerId + 1 }))
       }
     }
-  }, [customers])
+  }
 
   const fetchCustomers = async () => {
     try {
@@ -81,11 +89,6 @@ export default function NewCustomerPage() {
         return
       }
       
-      if (!formData.customerId || formData.customerId <= 0) {
-        alert('Please enter a valid Customer ID')
-        return
-      }
-      
       setSavingCustomer(true)
       const response = await fetch('/api/customers', {
         method: 'POST',
@@ -101,11 +104,10 @@ export default function NewCustomerPage() {
         
         alert('Customer saved successfully!')
         // Reset form for new entry
-        const maxCustomerId = customers.length > 0 
-          ? Math.max(...customers.map(c => c.customerId || 0), 0)
-          : 0
-        setFormData({ 
-          customerId: maxCustomerId + 2, 
+        await fetchCustomers()
+        await fetchNextCustomerId()
+        setFormData(prev => ({ 
+          ...prev,
           name: '',
           address: '',
           aadhaar: '',
@@ -117,11 +119,9 @@ export default function NewCustomerPage() {
           phone2: '',
           imageUrl: '',
           id: undefined // Clear ID for new entry
-        })
+        }))
         // Trigger camera reset
         setResetTrigger(prev => prev + 1)
-        // Refresh customers list
-        await fetchCustomers()
         console.log('Customer saved. Total customers:', customers.length + 1)
       } else {
         const errorData = await response.json().catch(() => ({}))
@@ -223,12 +223,10 @@ export default function NewCustomerPage() {
     setFormData(prev => ({ ...prev, imageUrl: undefined }))
   }
 
-  const handleReset = () => {
-    const maxCustomerId = customers.length > 0 
-      ? Math.max(...customers.map(c => c.customerId || 0), 0)
-      : 0
-    setFormData({ 
-      customerId: maxCustomerId + 1, 
+  const handleReset = async () => {
+    await fetchNextCustomerId()
+    setFormData(prev => ({ 
+      ...prev,
       name: '',
       address: '',
       aadhaar: '',
@@ -240,7 +238,7 @@ export default function NewCustomerPage() {
       phone2: '',
       imageUrl: '',
       id: undefined
-    })
+    }))
     // Trigger camera reset
     setResetTrigger(prev => prev + 1)
   }
@@ -269,12 +267,13 @@ export default function NewCustomerPage() {
               <div>
                 <label className="block text-sm font-medium mb-1">
                   Customer ID: <span className="text-red-500">*</span>
+                  <span className="text-xs text-gray-500 ml-2">(Auto-generated)</span>
                 </label>
                 <input
                   type="number"
                   value={formData.customerId || ''}
-                  onChange={(e) => handleInputChange('customerId', parseInt(e.target.value) || 0)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  readOnly
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed"
                   required
                 />
               </div>
