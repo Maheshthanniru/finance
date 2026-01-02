@@ -33,7 +33,15 @@ export default function CDLedgerPage() {
 
   const calculateLoanDetails = (loan: any, transactions: LedgerTransaction[], todayDate: string) => {
     // Parse dates correctly - handle YYYY-MM-DD format and avoid timezone issues
-    const today = new Date(todayDate + 'T00:00:00') // Add time to avoid timezone issues
+    // Use actual current date if todayDate is in the past (to ensure accurate due days calculation)
+    const todayDateObj = new Date(todayDate + 'T00:00:00')
+    const actualToday = new Date()
+    actualToday.setHours(0, 0, 0, 0)
+    
+    // Use the later of the two dates (user's date or actual today) for due days calculation
+    // This ensures overdue loans show correct due days even if user date is old
+    const today = todayDateObj > actualToday ? todayDateObj : actualToday
+    
     const loanDate = loan.loanDate ? new Date(loan.loanDate + 'T00:00:00') : (loan.date ? new Date(loan.date + 'T00:00:00') : today)
     const dueDate = loan.dueDate ? new Date(loan.dueDate + 'T00:00:00') : null
     
