@@ -220,7 +220,7 @@ export default function LoansEntryForm() {
       particulars: formData.particulars,
       loanAmount: formData.loanAmount || 0,
       rateOfInterest: formData.rateOfInterest,
-      period: formData.period, // Optional - don't provide default
+      period: formData.period ?? 0, // Optional in form, but required by type - default to 0
       documentCharges: formData.documentCharges, // Optional
       partnerId: formData.partnerId,
       partnerName: formData.partnerName,
