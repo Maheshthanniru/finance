@@ -104,8 +104,7 @@ function mapTransactionFromDb(dbTransaction: any): Transaction {
 
 // Helper function to convert Transaction type to database format
 function mapTransactionToDb(transaction: Transaction): any {
-  return {
-    id: transaction.id,
+  const transactionData: any = {
     date: transaction.date,
     account_name: transaction.accountName,
     particulars: transaction.particulars,
@@ -116,6 +115,14 @@ function mapTransactionToDb(transaction: Transaction): any {
     user_name: transaction.userName,
     entry_time: transaction.entryTime,
   };
+  
+  // Only include ID if it's a valid UUID (for updates)
+  // For new transactions, let the database generate the UUID
+  if (transaction.id && transaction.id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+    transactionData.id = transaction.id;
+  }
+  
+  return transactionData;
 }
 
 export async function getLoans(): Promise<Loan[]> {

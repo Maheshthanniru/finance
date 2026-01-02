@@ -32,13 +32,14 @@ export default function CDLedgerPage() {
   }, [])
 
   const calculateLoanDetails = (loan: any, transactions: LedgerTransaction[], todayDate: string) => {
-    const today = new Date(todayDate)
-    const loanDate = loan.loanDate ? new Date(loan.loanDate) : (loan.date ? new Date(loan.date) : today)
-    const dueDate = loan.dueDate ? new Date(loan.dueDate) : null
+    // Parse dates correctly - handle YYYY-MM-DD format and avoid timezone issues
+    const today = new Date(todayDate + 'T00:00:00') // Add time to avoid timezone issues
+    const loanDate = loan.loanDate ? new Date(loan.loanDate + 'T00:00:00') : (loan.date ? new Date(loan.date + 'T00:00:00') : today)
+    const dueDate = loan.dueDate ? new Date(loan.dueDate + 'T00:00:00') : null
     
-    // Calculate due days (days between due date and today)
+    // Calculate due days (days between due date and today) - positive if overdue
     let dueDays = 0
-    if (dueDate) {
+    if (dueDate && !isNaN(dueDate.getTime())) {
       const diffTime = today.getTime() - dueDate.getTime()
       dueDays = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)))
     }
@@ -99,7 +100,8 @@ export default function CDLedgerPage() {
 
   // Calculate loan details automatically when loan data and transactions are loaded
   useEffect(() => {
-    if (selectedAccount && formData.loanAmount !== undefined && formData.loanAmount > 0 && ledgerTransactions) {
+    if (selectedAccount && formData.loanAmount !== undefined && formData.loanAmount > 0 && Array.isArray(ledgerTransactions)) {
+      // Use the date field as "today" for calculation, or actual today's date
       const todayDate = formData.date || new Date().toISOString().split('T')[0]
       const calculated = calculateLoanDetails(formData, ledgerTransactions, todayDate)
       
@@ -144,32 +146,35 @@ export default function CDLedgerPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedAccount, formData.loanAmount, formData.rate, formData.rateOfInterest, formData.period, formData.date, JSON.stringify(ledgerTransactions)])
 
-  // Recalculate due days when due date changes
+  // Recalculate due days when due date or date field changes
   useEffect(() => {
-    if (formData.dueDate && formData.date) {
-      const today = new Date(formData.date)
-      const dueDate = new Date(formData.dueDate)
-      const diffTime = today.getTime() - dueDate.getTime()
-      const dueDays = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)))
-      
-      if (formData.dueDays !== dueDays) {
-        setFormData(prev => {
-          // Recalculate all values with new due days
-          const todayDate = prev.date || new Date().toISOString().split('T')[0]
-          const calculated = calculateLoanDetails(prev, ledgerTransactions, todayDate)
-          
-          return {
-            ...prev,
-            dueDays: calculated.dueDays,
-            penalty: calculated.penalty,
-            totalAmtForRenewal: calculated.totalAmtForRenewal,
-            totalAmtForClose: calculated.totalAmtForClose,
-          }
-        })
-      }
+    if (formData.dueDate && formData.loanAmount && Array.isArray(ledgerTransactions)) {
+      setFormData(prev => {
+        // Recalculate all values with current dates
+        const todayDate = prev.date || new Date().toISOString().split('T')[0]
+        const calculated = calculateLoanDetails(prev, ledgerTransactions, todayDate)
+        
+        // Only update if values changed to prevent infinite loops
+        if (
+          prev.dueDays === calculated.dueDays &&
+          prev.penalty === calculated.penalty &&
+          prev.totalAmtForRenewal === calculated.totalAmtForRenewal &&
+          prev.totalAmtForClose === calculated.totalAmtForClose
+        ) {
+          return prev
+        }
+        
+        return {
+          ...prev,
+          dueDays: calculated.dueDays,
+          penalty: calculated.penalty,
+          totalAmtForRenewal: calculated.totalAmtForRenewal,
+          totalAmtForClose: calculated.totalAmtForClose,
+        }
+      })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.dueDate, formData.date])
+  }, [formData.dueDate, formData.date, formData.loanAmount, ledgerTransactions?.length])
 
   const fetchAccounts = async () => {
     try {
@@ -262,6 +267,262 @@ export default function CDLedgerPage() {
     } catch (error) {
       console.error('Error saving account:', error)
       alert('Error saving account')
+    }
+  }
+
+  const handleRenewal = async () => {
+    if (!selectedAccount || !formData.totalAmtForRenewal || formData.totalAmtForRenewal <= 0) {
+      alert('Please select an account and ensure renewal amount is valid')
+      return
+    }
+
+    const renewalAmount = formData.totalAmtForRenewal
+    const confirmMessage = `Renew loan for ${formData.customerName || 'this account'}?\n\n` +
+      `Renewal Amount: ₹${formatCurrency(renewalAmount)}\n\n` +
+      `This will:\n` +
+      `1. Record a payment transaction of ₹${formatCurrency(renewalAmount)}\n` +
+      `2. Update loan dates (Loan Date = Today, Due Date = Today + Period)\n` +
+      `3. Reset interest and penalty calculations\n\n` +
+      `Continue?`
+
+    if (!confirm(confirmMessage)) {
+      return
+    }
+
+    try {
+      const renewalDate = formData.date || new Date().toISOString().split('T')[0]
+      
+      // Calculate new due date: renewal date + period (default 365 days if period not set)
+      const periodDays = formData.period || 365
+      const renewalDateObj = new Date(renewalDate + 'T00:00:00')
+      renewalDateObj.setDate(renewalDateObj.getDate() + periodDays)
+      const newDueDate = renewalDateObj.toISOString().split('T')[0]
+
+      // Step 1: Create payment transaction (debit entry)
+      // Don't include id - database will generate UUID
+      const transaction = {
+        id: '', // Will be generated by database
+        date: renewalDate,
+        accountName: formData.customerName || `CD-${formData.number || formData.receiptNo}`,
+        particulars: `Loan Renewal - CD-${formData.number || formData.receiptNo || ''} - ${formData.customerName || ''}`,
+        number: String(formData.number || formData.receiptNo || ''),
+        debit: renewalAmount,
+        credit: 0,
+        userName: 'RAMESH',
+        entryTime: new Date().toISOString(),
+      }
+
+      const transactionResponse = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(transaction),
+      })
+
+      if (!transactionResponse.ok) {
+        const error = await transactionResponse.json()
+        throw new Error(error.error || 'Failed to create transaction')
+      }
+
+      // Step 2: Update loan with new dates
+      const updatedLoan = {
+        ...formData,
+        loanDate: renewalDate,
+        dueDate: newDueDate,
+        // Keep the same loan number and amount, just reset dates
+      }
+
+      const loanResponse = await fetch(`/api/loans/${selectedAccount}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedLoan),
+      })
+
+      if (!loanResponse.ok) {
+        const error = await loanResponse.json()
+        throw new Error(error.error || 'Failed to update loan')
+      }
+
+      alert(`Loan renewed successfully!\n\nPayment recorded: ₹${formatCurrency(renewalAmount)}\nNew Due Date: ${new Date(newDueDate).toLocaleDateString()}`)
+      
+      // Refresh data
+      await fetchAccountDetails(selectedAccount)
+      await fetchLedgerTransactions(selectedAccount)
+      await fetchAccounts()
+    } catch (error: any) {
+      console.error('Error renewing loan:', error)
+      alert(`Error renewing loan: ${error.message || 'Unknown error'}`)
+    }
+  }
+
+  const handlePartialPaymentAndRenewal = async () => {
+    if (!selectedAccount || !formData.totalAmtForRenewal || formData.totalAmtForRenewal <= 0) {
+      alert('Please select an account and ensure renewal amount is valid')
+      return
+    }
+
+    // Prompt for partial payment amount
+    const paymentInput = prompt(
+      `Enter partial payment amount for renewal:\n\n` +
+      `Total Renewal Amount: ₹${formatCurrency(formData.totalAmtForRenewal)}\n` +
+      `Remaining balance after payment will be carried forward.\n\n` +
+      `Enter amount:`,
+      '0'
+    )
+
+    if (!paymentInput) {
+      return // User cancelled
+    }
+
+    const paymentAmount = parseFloat(paymentInput)
+    if (isNaN(paymentAmount) || paymentAmount <= 0) {
+      alert('Please enter a valid payment amount')
+      return
+    }
+
+    if (paymentAmount > formData.totalAmtForRenewal) {
+      alert(`Payment amount cannot exceed renewal amount of ₹${formatCurrency(formData.totalAmtForRenewal)}`)
+      return
+    }
+
+    const remainingBalance = formData.totalAmtForRenewal - paymentAmount
+    const confirmMessage = `Process partial payment and renewal?\n\n` +
+      `Payment Amount: ₹${formatCurrency(paymentAmount)}\n` +
+      `Remaining Balance: ₹${formatCurrency(remainingBalance)}\n\n` +
+      `This will:\n` +
+      `1. Record payment transaction of ₹${formatCurrency(paymentAmount)}\n` +
+      `2. Update loan dates (renewal)\n` +
+      `3. Remaining balance will be added to new loan principal\n\n` +
+      `Continue?`
+
+    if (!confirm(confirmMessage)) {
+      return
+    }
+
+    try {
+      const renewalDate = formData.date || new Date().toISOString().split('T')[0]
+      
+      // Calculate new due date: renewal date + period
+      const periodDays = formData.period || 365
+      const renewalDateObj = new Date(renewalDate + 'T00:00:00')
+      renewalDateObj.setDate(renewalDateObj.getDate() + periodDays)
+      const newDueDate = renewalDateObj.toISOString().split('T')[0]
+
+      // Step 1: Create partial payment transaction (debit entry)
+      // Don't include id - database will generate UUID
+      const transaction = {
+        id: '', // Will be generated by database
+        date: renewalDate,
+        accountName: formData.customerName || `CD-${formData.number || formData.receiptNo}`,
+        particulars: `Partial Payment for Renewal - CD-${formData.number || formData.receiptNo || ''} - ${formData.customerName || ''}`,
+        number: String(formData.number || formData.receiptNo || ''),
+        debit: paymentAmount,
+        credit: 0,
+        userName: 'RAMESH',
+        entryTime: new Date().toISOString(),
+      }
+
+      const transactionResponse = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(transaction),
+      })
+
+      if (!transactionResponse.ok) {
+        const error = await transactionResponse.json()
+        throw new Error(error.error || 'Failed to create transaction')
+      }
+
+      // Step 2: Update loan - add remaining balance to principal and renew
+      const newLoanAmount = (formData.loanAmount || 0) + remainingBalance
+      const updatedLoan = {
+        ...formData,
+        loanAmount: newLoanAmount,
+        loanDate: renewalDate,
+        dueDate: newDueDate,
+      }
+
+      const loanResponse = await fetch(`/api/loans/${selectedAccount}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedLoan),
+      })
+
+      if (!loanResponse.ok) {
+        const error = await loanResponse.json()
+        throw new Error(error.error || 'Failed to update loan')
+      }
+
+      alert(`Partial payment and renewal processed successfully!\n\n` +
+        `Payment recorded: ₹${formatCurrency(paymentAmount)}\n` +
+        `Remaining balance added to new principal: ₹${formatCurrency(remainingBalance)}\n` +
+        `New Loan Amount: ₹${formatCurrency(newLoanAmount)}\n` +
+        `New Due Date: ${new Date(newDueDate).toLocaleDateString()}`)
+      
+      // Refresh data
+      await fetchAccountDetails(selectedAccount)
+      await fetchLedgerTransactions(selectedAccount)
+      await fetchAccounts()
+    } catch (error: any) {
+      console.error('Error processing partial payment and renewal:', error)
+      alert(`Error processing partial payment and renewal: ${error.message || 'Unknown error'}`)
+    }
+  }
+
+  const handleCloseAccount = async () => {
+    if (!selectedAccount || !formData.totalAmtForClose || formData.totalAmtForClose <= 0) {
+      alert('Please select an account and ensure close amount is valid')
+      return
+    }
+
+    const closeAmount = formData.totalAmtForClose
+    const confirmMessage = `Close loan account for ${formData.customerName || 'this account'}?\n\n` +
+      `Total Amount to Close: ₹${formatCurrency(closeAmount)}\n\n` +
+      `This will:\n` +
+      `1. Record a payment transaction of ₹${formatCurrency(closeAmount)}\n` +
+      `2. Mark the loan as closed\n\n` +
+      `Continue?`
+
+    if (!confirm(confirmMessage)) {
+      return
+    }
+
+    try {
+      const closeDate = formData.date || new Date().toISOString().split('T')[0]
+      
+      // Create payment transaction (debit entry)
+      // Don't include id - database will generate UUID
+      const transaction = {
+        id: '', // Will be generated by database
+        date: closeDate,
+        accountName: formData.customerName || `CD-${formData.number || formData.receiptNo}`,
+        particulars: `Loan Closed - CD-${formData.number || formData.receiptNo || ''} - ${formData.customerName || ''}`,
+        number: String(formData.number || formData.receiptNo || ''),
+        debit: closeAmount,
+        credit: 0,
+        userName: 'RAMESH',
+        entryTime: new Date().toISOString(),
+      }
+
+      const transactionResponse = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(transaction),
+      })
+
+      if (!transactionResponse.ok) {
+        const error = await transactionResponse.json()
+        throw new Error(error.error || 'Failed to create transaction')
+      }
+
+      alert(`Loan closed successfully!\n\nFinal payment recorded: ₹${formatCurrency(closeAmount)}`)
+      
+      // Refresh data
+      await fetchAccountDetails(selectedAccount)
+      await fetchLedgerTransactions(selectedAccount)
+      await fetchAccounts()
+    } catch (error: any) {
+      console.error('Error closing loan:', error)
+      alert(`Error closing loan: ${error.message || 'Unknown error'}`)
     }
   }
 
@@ -545,13 +806,25 @@ export default function CDLedgerPage() {
                 </div>
               </div>
               <div className="mt-4 flex gap-4">
-                <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md">
+                <button 
+                  onClick={handleRenewal}
+                  disabled={!selectedAccount || !formData.totalAmtForRenewal}
+                  className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-md"
+                >
                   Renewal Account
                 </button>
-                <button className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-md">
+                <button 
+                  onClick={handlePartialPaymentAndRenewal}
+                  disabled={!selectedAccount || !formData.totalAmtForRenewal}
+                  className="bg-orange-500 hover:bg-orange-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-md"
+                >
                   Partial Payment and Renewal
                 </button>
-                <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md">
+                <button 
+                  onClick={handleCloseAccount}
+                  disabled={!selectedAccount || !formData.totalAmtForClose}
+                  className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-md"
+                >
                   Close Account
                 </button>
               </div>
