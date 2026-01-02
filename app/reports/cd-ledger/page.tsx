@@ -31,16 +31,10 @@ export default function CDLedgerPage() {
     setCurrentTime(new Date().toLocaleString())
   }, [])
 
-  const calculateLoanDetails = (loan: any, transactions: LedgerTransaction[], todayDate: string) => {
-    // Parse dates correctly - handle YYYY-MM-DD format and avoid timezone issues
-    // Use actual current date if todayDate is in the past (to ensure accurate due days calculation)
-    const todayDateObj = new Date(todayDate + 'T00:00:00')
-    const actualToday = new Date()
-    actualToday.setHours(0, 0, 0, 0)
-    
-    // Use the later of the two dates (user's date or actual today) for due days calculation only
-    // This ensures overdue loans show correct due days even if user date is old
-    const today = todayDateObj > actualToday ? todayDateObj : actualToday
+  const calculateLoanDetails = (loan: any, transactions: LedgerTransaction[]) => {
+    // Always use actual current date for due days calculation
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
     
     // CRITICAL: For interest calculation, use ONLY the original loan date from loanDate field
     // The database has 'date' field which is the original loan date
@@ -146,9 +140,8 @@ export default function CDLedgerPage() {
       return
     }
     
-    // Use the date field as "today" for calculation, or actual today's date
-    const todayDate = formData.date || new Date().toISOString().split('T')[0]
-    const calculated = calculateLoanDetails(formData, ledgerTransactions, todayDate)
+    // Use actual current date for calculation
+    const calculated = calculateLoanDetails(formData, ledgerTransactions)
     
     // Only update calculated fields, don't trigger re-render loops
     setFormData(prev => {
@@ -189,7 +182,7 @@ export default function CDLedgerPage() {
       }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedAccount, formData.loanAmount, formData.rate, formData.rateOfInterest, formData.period, formData.date, formData.loanDate, JSON.stringify(ledgerTransactions)])
+  }, [selectedAccount, formData.loanAmount, formData.rate, formData.rateOfInterest, formData.period, formData.loanDate, JSON.stringify(ledgerTransactions)])
 
   // Recalculate due days when due date or date field changes
   useEffect(() => {
@@ -199,9 +192,8 @@ export default function CDLedgerPage() {
     }
     
     setFormData(prev => {
-      // Recalculate all values with current dates
-      const todayDate = prev.date || new Date().toISOString().split('T')[0]
-      const calculated = calculateLoanDetails(prev, ledgerTransactions, todayDate)
+      // Recalculate all values with actual current date
+      const calculated = calculateLoanDetails(prev, ledgerTransactions)
       
       // Only update if values changed to prevent infinite loops
       if (
@@ -224,7 +216,7 @@ export default function CDLedgerPage() {
       }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.dueDate, formData.date, formData.loanAmount, formData.loanDate, ledgerTransactions?.length])
+  }, [formData.dueDate, formData.loanAmount, formData.loanDate, ledgerTransactions?.length])
 
   const fetchAccounts = async () => {
     try {
@@ -259,24 +251,17 @@ export default function CDLedgerPage() {
       // Set all loan details including images - images will automatically display
       // CRITICAL: The database has a 'date' field which is the ORIGINAL loan date
       // We MUST preserve this as loanDate for interest calculation (NEVER changes)
-      // The form's 'date' field should be "today" for due days calculation (user can change)
       
       // The database 'date' field is the original loan date - preserve it in loanDate
       const originalLoanDate = data.date // Original loan date from DB (always use data.date, database doesn't have loanDate field)
       
-      // Extract date field before spreading data, so we don't overwrite form's "today" date field
-      const { date: dbOriginalDate, ...loanDataWithoutDate } = data
-      
       setFormData(prev => ({
-        ...loanDataWithoutDate, // Spread all loan data EXCEPT the original date field
+        ...data, // Spread all loan data (including date field from DB, but it's not used for calculations)
         receiptNo: data.receiptNo || data.number,
         rate: data.rate || data.rateOfInterest,
         // CRITICAL: Preserve original loan date from database in loanDate field
         // This is the ORIGINAL loan date from DB (never changes, used for interest calculation)
         loanDate: originalLoanDate,
-        // Keep form's "today" date separate - user can change this for due days calculation
-        // Don't overwrite if user has already set it, otherwise use actual today
-        date: prev.date && prev.date !== dbOriginalDate ? prev.date : new Date().toISOString().split('T')[0],
       }))
     } catch (error) {
       console.error('Error fetching account details:', error)
@@ -345,7 +330,7 @@ export default function CDLedgerPage() {
       `Renewal Amount: ₹${formatCurrency(renewalAmount)}\n\n` +
       `This will:\n` +
       `1. Record a payment transaction of ₹${formatCurrency(renewalAmount)}\n` +
-      `2. Update loan dates (Loan Date = Today, Due Date = Today + Period)\n` +
+        `2. Update loan dates (Loan Date = Current Date, Due Date = Current Date + Period)\n` +
       `3. Reset interest and penalty calculations\n\n` +
       `Continue?`
 
@@ -354,7 +339,7 @@ export default function CDLedgerPage() {
     }
 
     try {
-      const renewalDate = formData.date || new Date().toISOString().split('T')[0]
+      const renewalDate = new Date().toISOString().split('T')[0] // Always use actual current date
       
       // Calculate new due date: renewal date + period (default 365 days if period not set)
       const periodDays = formData.period || 365
@@ -463,7 +448,7 @@ export default function CDLedgerPage() {
     }
 
     try {
-      const renewalDate = formData.date || new Date().toISOString().split('T')[0]
+      const renewalDate = new Date().toISOString().split('T')[0] // Always use actual current date
       
       // Calculate new due date: renewal date + period
       const periodDays = formData.period || 365
@@ -551,7 +536,7 @@ export default function CDLedgerPage() {
     }
 
     try {
-      const closeDate = formData.date || new Date().toISOString().split('T')[0]
+      const closeDate = new Date().toISOString().split('T')[0] // Always use actual current date
       
       // Create payment transaction (debit entry)
       // Don't include id - database will generate UUID
@@ -629,13 +614,6 @@ export default function CDLedgerPage() {
 
       <div className="container mx-auto px-6 py-6">
         <div className="mb-4 flex items-center gap-4">
-          <label className="text-sm font-medium">Today's Date:</label>
-          <input
-            type="date"
-            value={formData.date}
-            onChange={(e) => handleInputChange('date', e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md"
-          />
           <button
             onClick={() => router.push('/reports/stbd-ledger')}
             className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-md"
