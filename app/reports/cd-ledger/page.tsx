@@ -58,15 +58,23 @@ export default function CDLedgerPage() {
     // Get rate of interest (use rate if available, otherwise use rateOfInterest, default to 12%)
     const rate = loan.rate || loan.rateOfInterest || 12
     
-    // Get period in days (use period from loan, calculate from dates, or default to 365)
+    // Calculate period from LOAN DATE to DUE DATE (original loan period)
     let periodDays = loan.period || 0
-    if (!periodDays && loanDate && dueDate) {
+    if (loanDate && dueDate && !isNaN(loanDate.getTime()) && !isNaN(dueDate.getTime())) {
+      // Calculate actual period from loan date to due date
       const diffTime = dueDate.getTime() - loanDate.getTime()
-      periodDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      const calculatedPeriod = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      if (calculatedPeriod > 0) {
+        periodDays = calculatedPeriod
+      }
     }
-    if (!periodDays) periodDays = 365 // Default to 1 year
+    // If we still don't have a period, use the stored period or default to 365
+    if (!periodDays || periodDays <= 0) {
+      periodDays = loan.period || 365 // Default to 1 year if no period available
+    }
     
-    // Calculate present interest: (Loan Amount * Rate * Period in years) / 100
+    // Calculate present interest based on ORIGINAL LOAN PERIOD (loan date to due date)
+    // Formula: (Loan Amount * Rate * Period in years) / 100
     // Period in years = periodDays / 365
     const periodYears = periodDays / 365
     const presentInterest = (loan.loanAmount * rate * periodYears) / 100
