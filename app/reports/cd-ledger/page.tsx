@@ -135,11 +135,41 @@ export default function CDLedgerPage() {
           // Set loanDate and dueDate if not already set
           loanDate: prev.loanDate || prev.date,
           dueDate: calculatedDueDate,
+          // Auto-populate receiptNo and rate if not set
+          receiptNo: prev.receiptNo || prev.number,
+          rate: prev.rate || prev.rateOfInterest,
         }
       })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedAccount, formData.loanAmount, formData.rate, formData.rateOfInterest, formData.period, formData.date, JSON.stringify(ledgerTransactions)])
+
+  // Recalculate due days when due date changes
+  useEffect(() => {
+    if (formData.dueDate && formData.date) {
+      const today = new Date(formData.date)
+      const dueDate = new Date(formData.dueDate)
+      const diffTime = today.getTime() - dueDate.getTime()
+      const dueDays = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)))
+      
+      if (formData.dueDays !== dueDays) {
+        setFormData(prev => {
+          // Recalculate all values with new due days
+          const todayDate = prev.date || new Date().toISOString().split('T')[0]
+          const calculated = calculateLoanDetails(prev, ledgerTransactions, todayDate)
+          
+          return {
+            ...prev,
+            dueDays: calculated.dueDays,
+            penalty: calculated.penalty,
+            totalAmtForRenewal: calculated.totalAmtForRenewal,
+            totalAmtForClose: calculated.totalAmtForClose,
+          }
+        })
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.dueDate, formData.date])
 
   const fetchAccounts = async () => {
     try {
@@ -172,7 +202,13 @@ export default function CDLedgerPage() {
         return
       }
       // Set all loan details including images - images will automatically display
-      setFormData(data)
+      // Auto-populate receiptNo and rate from loan data if not already set
+      setFormData(prev => ({
+        ...data,
+        receiptNo: data.receiptNo || data.number,
+        rate: data.rate || data.rateOfInterest,
+        loanDate: data.loanDate || data.date,
+      }))
     } catch (error) {
       console.error('Error fetching account details:', error)
     }
@@ -378,22 +414,24 @@ export default function CDLedgerPage() {
               <h3 className="text-lg font-bold mb-4">Loan Details</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Receipt No</label>
+                  <label className="block text-sm font-medium mb-1">Receipt No <span className="text-xs text-gray-500">(Auto-filled)</span></label>
                   <input
                     type="number"
-                    value={formData.receiptNo || ''}
+                    value={formData.receiptNo || formData.number || ''}
                     onChange={(e) => handleInputChange('receiptNo', parseInt(e.target.value))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    placeholder="Auto-filled from loan number"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Rate</label>
+                  <label className="block text-sm font-medium mb-1">Rate <span className="text-xs text-gray-500">(Auto-filled)</span></label>
                   <input
                     type="number"
                     step="0.01"
-                    value={formData.rate || ''}
+                    value={formData.rate || formData.rateOfInterest || ''}
                     onChange={(e) => handleInputChange('rate', parseFloat(e.target.value))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    placeholder="Auto-filled from loan rate"
                   />
                 </div>
                 <div>
