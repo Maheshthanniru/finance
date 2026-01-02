@@ -42,7 +42,17 @@ export default function CDLedgerPage() {
     // This ensures overdue loans show correct due days even if user date is old
     const today = todayDateObj > actualToday ? todayDateObj : actualToday
     
-    const loanDate = loan.loanDate ? new Date(loan.loanDate + 'T00:00:00') : (loan.date ? new Date(loan.date + 'T00:00:00') : null)
+    // CRITICAL: For interest calculation, use ONLY the original loan date from loanDate field
+    // DO NOT use loan.date as fallback - it represents the form's "today" date field, not the original loan date
+    // The original loan date is stored in loanDate field (set from data.loanDate || data.date when fetched)
+    let loanDate: Date | null = null
+    if (loan.loanDate) {
+      const parsedLoanDate = new Date(loan.loanDate + 'T00:00:00')
+      if (!isNaN(parsedLoanDate.getTime())) {
+        loanDate = parsedLoanDate
+      }
+    }
+    // If loanDate is still null, we cannot calculate interest properly - this should not happen for valid loans
     const dueDate = loan.dueDate ? new Date(loan.dueDate + 'T00:00:00') : null
     
     // Calculate due days (days between due date and today) - positive if overdue
@@ -224,12 +234,17 @@ export default function CDLedgerPage() {
         return
       }
       // Set all loan details including images - images will automatically display
-      // Auto-populate receiptNo and rate from loan data if not already set
+      // IMPORTANT: Preserve the original loan date in loanDate field
+      // data.date is the original loan date from the database
+      // We store it in loanDate so it's not confused with the form's "today" date field
       setFormData(prev => ({
         ...data,
         receiptNo: data.receiptNo || data.number,
         rate: data.rate || data.rateOfInterest,
-        loanDate: data.loanDate || data.date,
+        // Always preserve original loan date from database - use loanDate if available, otherwise use date (original loan date)
+        loanDate: data.loanDate || data.date, // This is the ORIGINAL loan date from DB, not the form's "today"
+        // Keep date field as the original loan date too, but user can change it for "today" calculations
+        date: data.date, // Original loan date from DB
       }))
     } catch (error) {
       console.error('Error fetching account details:', error)
