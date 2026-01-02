@@ -38,14 +38,15 @@ export default function CDLedgerPage() {
     const actualToday = new Date()
     actualToday.setHours(0, 0, 0, 0)
     
-    // Use the later of the two dates (user's date or actual today) for due days calculation
+    // Use the later of the two dates (user's date or actual today) for due days calculation only
     // This ensures overdue loans show correct due days even if user date is old
     const today = todayDateObj > actualToday ? todayDateObj : actualToday
     
-    const loanDate = loan.loanDate ? new Date(loan.loanDate + 'T00:00:00') : (loan.date ? new Date(loan.date + 'T00:00:00') : today)
+    const loanDate = loan.loanDate ? new Date(loan.loanDate + 'T00:00:00') : (loan.date ? new Date(loan.date + 'T00:00:00') : null)
     const dueDate = loan.dueDate ? new Date(loan.dueDate + 'T00:00:00') : null
     
     // Calculate due days (days between due date and today) - positive if overdue
+    // This is ONLY for showing overdue status, NOT for interest calculation
     let dueDays = 0
     if (dueDate && !isNaN(dueDate.getTime())) {
       const diffTime = today.getTime() - dueDate.getTime()
@@ -58,22 +59,22 @@ export default function CDLedgerPage() {
     // Get rate of interest (use rate if available, otherwise use rateOfInterest, default to 12%)
     const rate = loan.rate || loan.rateOfInterest || 12
     
-    // Calculate period from LOAN DATE to DUE DATE (original loan period)
-    let periodDays = loan.period || 0
+    // IMPORTANT: Calculate interest based ONLY on period from LOAN DATE to DUE DATE
+    // Interest stops accruing at the due date, not at today
+    let periodDays = 0
     if (loanDate && dueDate && !isNaN(loanDate.getTime()) && !isNaN(dueDate.getTime())) {
-      // Calculate actual period from loan date to due date
+      // Calculate period from loan date to due date ONLY (not to today)
       const diffTime = dueDate.getTime() - loanDate.getTime()
-      const calculatedPeriod = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-      if (calculatedPeriod > 0) {
-        periodDays = calculatedPeriod
-      }
+      periodDays = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)))
     }
-    // If we still don't have a period, use the stored period or default to 365
-    if (!periodDays || periodDays <= 0) {
+    
+    // If period couldn't be calculated from dates, use stored period field or default
+    if (periodDays <= 0) {
       periodDays = loan.period || 365 // Default to 1 year if no period available
     }
     
-    // Calculate present interest based on ORIGINAL LOAN PERIOD (loan date to due date)
+    // Calculate present interest based ONLY on original loan period (loan date to due date)
+    // Interest does NOT accrue beyond the due date - penalty applies instead
     // Formula: (Loan Amount * Rate * Period in years) / 100
     // Period in years = periodDays / 365
     const periodYears = periodDays / 365
