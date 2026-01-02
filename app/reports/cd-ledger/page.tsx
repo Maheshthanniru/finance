@@ -62,14 +62,19 @@ export default function CDLedgerPage() {
         totalAmtForClose: loan.loanAmount || 0,
       }
     }
+    // Parse due date correctly - handle YYYY-MM-DD format
     const dueDate = loan.dueDate ? new Date(loan.dueDate + 'T00:00:00') : null
     
-    // Calculate due days (days between due date and today) - positive if overdue
-    // This is ONLY for showing overdue status, NOT for interest calculation
+    // Calculate due days (days between loan date and due date) - the loan period
+    // Due Days = Due Date - Loan Date (shows the period from loan date to due date)
     let dueDays = 0
-    if (dueDate && !isNaN(dueDate.getTime())) {
-      const diffTime = today.getTime() - dueDate.getTime()
-      dueDays = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)))
+    if (loanDate && dueDate && !isNaN(loanDate.getTime()) && !isNaN(dueDate.getTime())) {
+      // Calculate difference in milliseconds: Due Date - Loan Date
+      const diffTime = dueDate.getTime() - loanDate.getTime()
+      // Convert to days (86400000 ms = 1 day)
+      const daysDiff = diffTime / (1000 * 60 * 60 * 24)
+      // Round down and ensure non-negative
+      dueDays = Math.max(0, Math.floor(daysDiff))
     }
     
     // Calculate amount paid from ledger transactions (sum of debits)
@@ -101,11 +106,19 @@ export default function CDLedgerPage() {
     // Calculate total balance: Loan Amount + Interest - Amount Paid
     const totalBalance = loan.loanAmount + presentInterest - amountPaid
     
-    // Calculate penalty: Typically 1-2% per month on overdue amount, or based on due days
-    // For simplicity: 1% per 30 days overdue on total balance
+    // Calculate penalty: Based on overdue days (days past due date)
+    // Penalty applies only if the loan is overdue (today > due date)
     let penalty = 0
-    if (dueDays > 0 && totalBalance > 0) {
-      const penaltyMonths = dueDays / 30
+    let overdueDays = 0
+    if (dueDate && !isNaN(dueDate.getTime())) {
+      // Calculate overdue days: Today - Due Date (positive if overdue)
+      const overdueDiff = today.getTime() - dueDate.getTime()
+      overdueDays = Math.max(0, Math.floor(overdueDiff / (1000 * 60 * 60 * 24)))
+    }
+    
+    // Calculate penalty: 1% per 30 days overdue on total balance
+    if (overdueDays > 0 && totalBalance > 0) {
+      const penaltyMonths = overdueDays / 30
       penalty = (totalBalance * penaltyMonths * 1) / 100 // 1% per month
     }
     
@@ -216,7 +229,7 @@ export default function CDLedgerPage() {
       }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.dueDate, formData.loanAmount, formData.loanDate, ledgerTransactions?.length])
+  }, [formData.dueDate, formData.loanAmount, formData.loanDate, ledgerTransactions?.length, JSON.stringify(ledgerTransactions)])
 
   const fetchAccounts = async () => {
     try {
