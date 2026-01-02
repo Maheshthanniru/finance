@@ -573,24 +573,39 @@ export async function getDailyReport(date: string): Promise<DailyReport> {
 
 export async function getDayBook(date: string): Promise<DayBookEntry[]> {
   try {
+    if (!isSupabaseConfigured()) {
+      console.warn('Supabase is not configured. Returning empty array.');
+      return [];
+    }
+
+    // Ensure date is in YYYY-MM-DD format
+    const formattedDate = date.split('T')[0]; // Remove time if present
+    
+    console.log('Fetching day book for date:', formattedDate);
+    
     const { data: transactions, error } = await supabase
       .from('transactions')
       .select('*')
-      .eq('date', date)
+      .eq('date', formattedDate)
       .eq('is_deleted', false)
       .order('entry_time', { ascending: true });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error fetching day book:', error);
+      throw error;
+    }
+
+    console.log(`Found ${transactions?.length || 0} transactions for date ${formattedDate}`);
 
     return (transactions || []).map((t: any, index: number) => ({
       sn: index + 1,
-      headOfAccount: t.account_name,
-      particulars: t.particulars,
-      number: t.number || t.rno,
-      credit: parseFloat(t.credit),
-      debit: parseFloat(t.debit),
+      headOfAccount: t.account_name || '',
+      particulars: t.particulars || '',
+      number: t.number || t.rno || '',
+      credit: parseFloat(t.credit || 0),
+      debit: parseFloat(t.debit || 0),
     }));
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching day book:', error);
     return [];
   }

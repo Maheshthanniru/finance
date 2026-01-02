@@ -20,10 +20,29 @@ export default function DayBookPage() {
     setLoading(true)
     try {
       const response = await fetch(`/api/reports/daybook?date=${selectedDate}`)
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error('Error fetching day book:', errorData)
+        alert(`Error: ${errorData.error || 'Failed to fetch day book'}`)
+        setEntries([])
+        return
+      }
       const data = await response.json()
-      setEntries(data)
+      // Check if data is an array, if not, it might be an error object
+      if (Array.isArray(data)) {
+        setEntries(data)
+      } else if (data.error) {
+        console.error('Error from API:', data.error)
+        alert(`Error: ${data.error}`)
+        setEntries([])
+      } else {
+        console.error('Unexpected data format:', data)
+        setEntries([])
+      }
     } catch (error) {
       console.error('Error fetching day book:', error)
+      alert('Error fetching day book. Please check the console for details.')
+      setEntries([])
     } finally {
       setLoading(false)
     }

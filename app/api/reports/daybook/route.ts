@@ -13,9 +13,17 @@ export async function GET(request: NextRequest) {
     }
 
     const dayBook = await getDayBook(date)
+    
+    // Log for debugging
+    console.log(`Day book for date ${date}:`, dayBook.length, 'entries')
+    
     return NextResponse.json(dayBook)
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch day book' }, { status: 500 })
+  } catch (error: any) {
+    console.error('Error in day book API:', error)
+    return NextResponse.json({ 
+      error: 'Failed to fetch day book',
+      details: error.message || error.toString()
+    }, { status: 500 })
   }
 }
 

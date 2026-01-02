@@ -107,7 +107,7 @@ export default function CDLedgerPage() {
     const totalBalance = loan.loanAmount + presentInterest - amountPaid
     
     // Calculate penalty: Based on overdue days (days past due date)
-    // Penalty applies only if the loan is overdue (today > due date)
+    // Penalty applies only if the loan is overdue by more than 5 days (grace period)
     let penalty = 0
     let overdueDays = 0
     if (dueDate && !isNaN(dueDate.getTime())) {
@@ -116,10 +116,12 @@ export default function CDLedgerPage() {
       overdueDays = Math.max(0, Math.floor(overdueDiff / (1000 * 60 * 60 * 24)))
     }
     
-    // Calculate penalty: 1% per 30 days overdue on total balance
-    if (overdueDays > 0 && totalBalance > 0) {
-      const penaltyMonths = overdueDays / 30
-      penalty = (totalBalance * penaltyMonths * 1) / 100 // 1% per month
+    // Calculate penalty: 0.75% per 30 days overdue on total balance
+    // Penalty starts only after 5 days grace period
+    if (overdueDays > 5 && totalBalance > 0) {
+      const penaltyDays = overdueDays - 5 // Subtract grace period of 5 days
+      const penaltyMonths = penaltyDays / 30
+      penalty = (totalBalance * penaltyMonths * 0.75) / 100 // 0.75% per month
     }
     
     // Calculate total amount for renewal: Principal + Interest + Penalty

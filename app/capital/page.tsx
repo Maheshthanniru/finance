@@ -56,8 +56,17 @@ export default function CapitalPage() {
   const fetchTransactions = async () => {
     try {
       const response = await fetch('/api/capital/transactions')
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error('Error fetching transactions:', errorData)
+        return
+      }
       const data = await response.json()
-      setTransactions(data)
+      if (data.error) {
+        console.error('Error from API:', data.error)
+        return
+      }
+      setTransactions(Array.isArray(data) ? data : [])
     } catch (error) {
       console.error('Error fetching transactions:', error)
     }
@@ -68,26 +77,49 @@ export default function CapitalPage() {
   }
 
   const handleSave = async () => {
+    // Validation
+    if (!formData.particulars.trim()) {
+      alert('Please enter particulars')
+      return
+    }
+    if (formData.credit === 0 && formData.debit === 0) {
+      alert('Please enter either credit or debit amount')
+      return
+    }
+    if (formData.credit > 0 && formData.debit > 0) {
+      alert('Please enter either credit OR debit, not both')
+      return
+    }
+
     try {
       const response = await fetch('/api/capital/transactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       })
-      if (response.ok) {
-        alert('Capital entry saved successfully!')
-        fetchTransactions()
-        setFormData({
-          date: new Date().toISOString().split('T')[0],
-          partnerId: '',
-          particulars: '',
-          credit: 0,
-          debit: 0,
-        })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to save capital entry')
       }
-    } catch (error) {
+      
+      const result = await response.json()
+      if (result.error) {
+        throw new Error(result.error)
+      }
+      
+      alert('Capital entry saved successfully!')
+      fetchTransactions()
+      setFormData({
+        date: new Date().toISOString().split('T')[0],
+        partnerId: '',
+        particulars: '',
+        credit: 0,
+        debit: 0,
+      })
+    } catch (error: any) {
       console.error('Error saving capital entry:', error)
-      alert('Error saving capital entry')
+      alert(`Error saving capital entry: ${error.message || 'Unknown error'}`)
     }
   }
 

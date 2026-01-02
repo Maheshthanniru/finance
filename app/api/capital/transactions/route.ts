@@ -18,9 +18,19 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    // Check if Supabase is configured
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      console.error('❌ Supabase environment variables are missing!')
+      return NextResponse.json({ 
+        error: 'Database not configured',
+        message: 'Supabase environment variables are not set.'
+      }, { status: 500 })
+    }
+
     const data = await request.json()
+    
+    // Don't include id - let database generate UUID
     const transaction: Transaction = {
-      id: `capital-${Date.now()}`,
       date: data.date,
       accountName: `Capital - ${data.particulars}`,
       particulars: data.particulars,
@@ -31,8 +41,12 @@ export async function POST(request: NextRequest) {
     }
     await saveTransaction(transaction)
     return NextResponse.json({ success: true, transaction })
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to save capital transaction' }, { status: 500 })
+  } catch (error: any) {
+    console.error('Error saving capital transaction:', error)
+    return NextResponse.json({ 
+      error: 'Failed to save capital transaction',
+      details: error.message || error.toString()
+    }, { status: 500 })
   }
 }
 
