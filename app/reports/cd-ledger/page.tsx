@@ -54,10 +54,19 @@ export default function CDLedgerPage() {
       }
     }
     
-    // If loanDate is still null, we cannot calculate interest properly
-    // This should not happen for valid loans that were fetched from database
+    // If loanDate is still null, return early - cannot calculate interest without original loan date
+    // This prevents incorrect calculations using wrong dates
     if (!loanDate) {
-      console.error('ERROR: Loan date not available for interest calculation. loanDate:', loan.loanDate, 'loan object keys:', Object.keys(loan))
+      // Return zero values if loan date is not available - better than wrong calculation
+      return {
+        amountPaid: transactions.reduce((sum, t) => sum + t.debit, 0),
+        presentInterest: 0,
+        totalBalance: loan.loanAmount || 0,
+        dueDays: 0,
+        penalty: 0,
+        totalAmtForRenewal: loan.loanAmount || 0,
+        totalAmtForClose: loan.loanAmount || 0,
+      }
     }
     const dueDate = loan.dueDate ? new Date(loan.dueDate + 'T00:00:00') : null
     
@@ -132,84 +141,90 @@ export default function CDLedgerPage() {
 
   // Calculate loan details automatically when loan data and transactions are loaded
   useEffect(() => {
-    if (selectedAccount && formData.loanAmount !== undefined && formData.loanAmount > 0 && Array.isArray(ledgerTransactions)) {
-      // Use the date field as "today" for calculation, or actual today's date
-      const todayDate = formData.date || new Date().toISOString().split('T')[0]
-      const calculated = calculateLoanDetails(formData, ledgerTransactions, todayDate)
-      
-      // Only update calculated fields, don't trigger re-render loops
-      setFormData(prev => {
-        // Skip update if values haven't changed (prevent infinite loop)
-        const hasChanges = 
-          prev.amountPaid !== calculated.amountPaid ||
-          prev.presentInterest !== calculated.presentInterest ||
-          prev.totalBalance !== calculated.totalBalance ||
-          prev.dueDays !== calculated.dueDays ||
-          prev.penalty !== calculated.penalty ||
-          prev.totalAmtForRenewal !== calculated.totalAmtForRenewal ||
-          prev.totalAmtForClose !== calculated.totalAmtForClose
-        
-        if (!hasChanges) return prev
-        
-        // Calculate dueDate if not set: loanDate + period days
-        let calculatedDueDate = prev.dueDate
-        if (!calculatedDueDate && prev.loanDate && prev.period) {
-          const loanDateObj = new Date(prev.loanDate)
-          loanDateObj.setDate(loanDateObj.getDate() + prev.period)
-          calculatedDueDate = loanDateObj.toISOString().split('T')[0]
-        } else if (!calculatedDueDate && prev.loanDate) {
-          const loanDateObj = new Date(prev.loanDate)
-          loanDateObj.setDate(loanDateObj.getDate() + 365) // Default to 365 days
-          calculatedDueDate = loanDateObj.toISOString().split('T')[0]
-        }
-        
-        return {
-          ...prev,
-          ...calculated,
-          // CRITICAL: Preserve loanDate - it's the original loan date from database, never changes
-          loanDate: prev.loanDate, // Explicitly preserve original loan date
-          // Only set dueDate if not already set
-          dueDate: calculatedDueDate || prev.dueDate,
-          // Auto-populate receiptNo and rate if not set
-          receiptNo: prev.receiptNo || prev.number,
-          rate: prev.rate || prev.rateOfInterest,
-        }
-      })
+    // CRITICAL: Don't calculate if loanDate is not set yet (loan hasn't been fully loaded)
+    if (!selectedAccount || !formData.loanDate || formData.loanAmount === undefined || formData.loanAmount <= 0 || !Array.isArray(ledgerTransactions)) {
+      return
     }
+    
+    // Use the date field as "today" for calculation, or actual today's date
+    const todayDate = formData.date || new Date().toISOString().split('T')[0]
+    const calculated = calculateLoanDetails(formData, ledgerTransactions, todayDate)
+    
+    // Only update calculated fields, don't trigger re-render loops
+    setFormData(prev => {
+      // Skip update if values haven't changed (prevent infinite loop)
+      const hasChanges = 
+        prev.amountPaid !== calculated.amountPaid ||
+        prev.presentInterest !== calculated.presentInterest ||
+        prev.totalBalance !== calculated.totalBalance ||
+        prev.dueDays !== calculated.dueDays ||
+        prev.penalty !== calculated.penalty ||
+        prev.totalAmtForRenewal !== calculated.totalAmtForRenewal ||
+        prev.totalAmtForClose !== calculated.totalAmtForClose
+      
+      if (!hasChanges) return prev
+      
+      // Calculate dueDate if not set: loanDate + period days
+      let calculatedDueDate = prev.dueDate
+      if (!calculatedDueDate && prev.loanDate && prev.period) {
+        const loanDateObj = new Date(prev.loanDate)
+        loanDateObj.setDate(loanDateObj.getDate() + prev.period)
+        calculatedDueDate = loanDateObj.toISOString().split('T')[0]
+      } else if (!calculatedDueDate && prev.loanDate) {
+        const loanDateObj = new Date(prev.loanDate)
+        loanDateObj.setDate(loanDateObj.getDate() + 365) // Default to 365 days
+        calculatedDueDate = loanDateObj.toISOString().split('T')[0]
+      }
+      
+      return {
+        ...prev,
+        ...calculated,
+        // CRITICAL: Preserve loanDate - it's the original loan date from database, never changes
+        loanDate: prev.loanDate, // Explicitly preserve original loan date
+        // Only set dueDate if not already set
+        dueDate: calculatedDueDate || prev.dueDate,
+        // Auto-populate receiptNo and rate if not set
+        receiptNo: prev.receiptNo || prev.number,
+        rate: prev.rate || prev.rateOfInterest,
+      }
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedAccount, formData.loanAmount, formData.rate, formData.rateOfInterest, formData.period, formData.date, JSON.stringify(ledgerTransactions)])
+  }, [selectedAccount, formData.loanAmount, formData.rate, formData.rateOfInterest, formData.period, formData.date, formData.loanDate, JSON.stringify(ledgerTransactions)])
 
   // Recalculate due days when due date or date field changes
   useEffect(() => {
-    if (formData.dueDate && formData.loanAmount && Array.isArray(ledgerTransactions)) {
-      setFormData(prev => {
-        // Recalculate all values with current dates
-        const todayDate = prev.date || new Date().toISOString().split('T')[0]
-        const calculated = calculateLoanDetails(prev, ledgerTransactions, todayDate)
-        
-        // Only update if values changed to prevent infinite loops
-        if (
-          prev.dueDays === calculated.dueDays &&
-          prev.penalty === calculated.penalty &&
-          prev.totalAmtForRenewal === calculated.totalAmtForRenewal &&
-          prev.totalAmtForClose === calculated.totalAmtForClose
-        ) {
-          return prev
-        }
-        
-        return {
-          ...prev,
-          // CRITICAL: Preserve loanDate - it's the original loan date from database, never changes
-          loanDate: prev.loanDate, // Explicitly preserve original loan date
-          dueDays: calculated.dueDays,
-          penalty: calculated.penalty,
-          totalAmtForRenewal: calculated.totalAmtForRenewal,
-          totalAmtForClose: calculated.totalAmtForClose,
-        }
-      })
+    // CRITICAL: Don't calculate if loanDate is not set yet (loan hasn't been fully loaded)
+    if (!formData.loanDate || !formData.dueDate || !formData.loanAmount || !Array.isArray(ledgerTransactions)) {
+      return
     }
+    
+    setFormData(prev => {
+      // Recalculate all values with current dates
+      const todayDate = prev.date || new Date().toISOString().split('T')[0]
+      const calculated = calculateLoanDetails(prev, ledgerTransactions, todayDate)
+      
+      // Only update if values changed to prevent infinite loops
+      if (
+        prev.dueDays === calculated.dueDays &&
+        prev.penalty === calculated.penalty &&
+        prev.totalAmtForRenewal === calculated.totalAmtForRenewal &&
+        prev.totalAmtForClose === calculated.totalAmtForClose
+      ) {
+        return prev
+      }
+      
+      return {
+        ...prev,
+        // CRITICAL: Preserve loanDate - it's the original loan date from database, never changes
+        loanDate: prev.loanDate, // Explicitly preserve original loan date
+        dueDays: calculated.dueDays,
+        penalty: calculated.penalty,
+        totalAmtForRenewal: calculated.totalAmtForRenewal,
+        totalAmtForClose: calculated.totalAmtForClose,
+      }
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.dueDate, formData.date, formData.loanAmount, ledgerTransactions?.length])
+  }, [formData.dueDate, formData.date, formData.loanAmount, formData.loanDate, ledgerTransactions?.length])
 
   const fetchAccounts = async () => {
     try {
