@@ -12,10 +12,7 @@ export default function LoansEntryForm() {
     date: new Date().toISOString().split('T')[0],
     loanType: 'CD',
     number: 1,
-    documentCharges: 0,
-    period: 30,
   })
-  const [password, setPassword] = useState('')
   const [existingLoans, setExistingLoans] = useState<Loan[]>([])
   const [dayBookDetails, setDayBookDetails] = useState<any[]>([])
   const [isGeneralModalOpen, setIsGeneralModalOpen] = useState(false)
@@ -191,13 +188,23 @@ export default function LoansEntryForm() {
   }
 
   const handleSave = async () => {
-    if (!formData.customerName || !formData.loanAmount) {
-      alert('Please fill in required fields: Customer Name and Loan Amount')
+    if (!formData.customerName || !formData.customerName.trim()) {
+      alert('Please enter Customer Name')
+      return
+    }
+    
+    if (!formData.loanAmount || formData.loanAmount <= 0) {
+      alert('Please enter a valid Loan Amount')
+      return
+    }
+    
+    if (!formData.address || !formData.address.trim()) {
+      alert('Please enter Address')
       return
     }
 
     const loan: Loan = {
-      id: `loan-${Date.now()}`,
+      // Don't include id - let database generate UUID
       number: formData.number || 1,
       date: formData.date || new Date().toISOString().split('T')[0],
       loanType: formData.loanType || 'CD',
@@ -213,8 +220,8 @@ export default function LoansEntryForm() {
       particulars: formData.particulars,
       loanAmount: formData.loanAmount || 0,
       rateOfInterest: formData.rateOfInterest,
-      period: formData.period || 30,
-      documentCharges: formData.documentCharges || 0,
+      period: formData.period, // Optional - don't provide default
+      documentCharges: formData.documentCharges, // Optional
       partnerId: formData.partnerId,
       partnerName: formData.partnerName,
       userName: 'RAMESH', // This would come from auth in production
@@ -280,12 +287,52 @@ export default function LoansEntryForm() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                <input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => handleInputChange('date', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={formData.date || ''}
+                    onChange={(e) => {
+                      // Allow manual typing - accept date in various formats
+                      const inputValue = e.target.value
+                      handleInputChange('date', inputValue)
+                    }}
+                    onBlur={(e) => {
+                      // Validate and normalize date format on blur
+                      const inputValue = e.target.value.trim()
+                      if (inputValue) {
+                        // Try to parse various date formats
+                        const dateMatch = inputValue.match(/(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})/)
+                        if (dateMatch) {
+                          const [, day, month, year] = dateMatch
+                          const fullYear = year.length === 2 ? `20${year}` : year
+                          // Format as YYYY-MM-DD
+                          const formattedDate = `${fullYear}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+                          // Validate date
+                          const dateObj = new Date(formattedDate)
+                          if (!isNaN(dateObj.getTime())) {
+                            handleInputChange('date', formattedDate)
+                          }
+                        } else if (inputValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                          // Already in YYYY-MM-DD format
+                          const dateObj = new Date(inputValue)
+                          if (!isNaN(dateObj.getTime())) {
+                            handleInputChange('date', inputValue)
+                          }
+                        }
+                      }
+                    }}
+                    placeholder="DD-MM-YYYY or click calendar"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                  <input
+                    type="date"
+                    value={formData.date || ''}
+                    onChange={(e) => handleInputChange('date', e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer"
+                    title="Select date from calendar"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Type date (DD-MM-YYYY) or use calendar picker</p>
               </div>
 
               <div>
@@ -541,22 +588,25 @@ export default function LoansEntryForm() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Period (days)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Period (days) <span className="text-xs text-gray-500">(Optional)</span></label>
                 <input
                   type="number"
                   value={formData.period || ''}
-                  onChange={(e) => handleInputChange('period', parseInt(e.target.value))}
+                  onChange={(e) => handleInputChange('period', e.target.value ? parseInt(e.target.value) : undefined)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  placeholder="Enter period in days"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Document Charges</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Document Charges <span className="text-xs text-gray-500">(Optional)</span></label>
                 <input
                   type="number"
+                  step="0.01"
                   value={formData.documentCharges || ''}
-                  onChange={(e) => handleInputChange('documentCharges', parseFloat(e.target.value))}
+                  onChange={(e) => handleInputChange('documentCharges', e.target.value ? parseFloat(e.target.value) : undefined)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  placeholder="Enter document charges"
                 />
               </div>
 
@@ -617,15 +667,6 @@ export default function LoansEntryForm() {
               >
                 General
               </button>
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-gray-700">Password:</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                />
-              </div>
             </div>
           </div>
 

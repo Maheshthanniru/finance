@@ -43,8 +43,7 @@ function mapLoanFromDb(dbLoan: any): Loan {
 
 // Helper function to convert Loan type to database format
 function mapLoanToDb(loan: Loan): any {
-  return {
-    id: loan.id,
+  const loanData: any = {
     number: loan.number,
     date: loan.date,
     loan_type: loan.loanType,
@@ -64,7 +63,6 @@ function mapLoanToDb(loan: Loan): any {
     particulars: loan.particulars || null,
     loan_amount: loan.loanAmount,
     rate_of_interest: loan.rateOfInterest || null,
-    period: loan.period,
     document_charges: loan.documentCharges || null,
     partner_id: loan.partnerId || null,
     partner_name: loan.partnerName || null,
@@ -75,6 +73,17 @@ function mapLoanToDb(loan: Loan): any {
     guarantor2_image_url: loan.guarantor2ImageUrl || null,
     partner_image_url: loan.partnerImageUrl || null,
   };
+  
+  // Only include ID if it's a valid UUID (for updates)
+  // For new loans, let the database generate the UUID
+  if (loan.id && loan.id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+    loanData.id = loan.id;
+  }
+  
+  // Period is optional in form but required in DB - use 0 as default if not provided
+  loanData.period = loan.period !== undefined && loan.period !== null ? loan.period : 0;
+  
+  return loanData;
 }
 
 // Helper function to convert database transaction to Transaction type
@@ -144,9 +153,10 @@ export async function saveLoan(loan: Loan): Promise<void> {
   try {
     const loanData = mapLoanToDb(loan);
     
-    const { error } = await supabase
-      .from('loans')
-      .upsert(loanData, { onConflict: 'id' });
+    // Use insert for new loans (no ID) or upsert for updates (with valid UUID)
+    const { error } = loanData.id
+      ? await supabase.from('loans').upsert(loanData, { onConflict: 'id' })
+      : await supabase.from('loans').insert(loanData);
 
     if (error) throw error;
   } catch (error) {
