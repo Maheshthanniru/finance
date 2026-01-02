@@ -31,12 +31,115 @@ export default function CDLedgerPage() {
     setCurrentTime(new Date().toLocaleString())
   }, [])
 
+  const calculateLoanDetails = (loan: any, transactions: LedgerTransaction[], todayDate: string) => {
+    const today = new Date(todayDate)
+    const loanDate = loan.loanDate ? new Date(loan.loanDate) : (loan.date ? new Date(loan.date) : today)
+    const dueDate = loan.dueDate ? new Date(loan.dueDate) : null
+    
+    // Calculate due days (days between due date and today)
+    let dueDays = 0
+    if (dueDate) {
+      const diffTime = today.getTime() - dueDate.getTime()
+      dueDays = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)))
+    }
+    
+    // Calculate amount paid from ledger transactions (sum of debits)
+    const amountPaid = transactions.reduce((sum, t) => sum + t.debit, 0)
+    
+    // Get rate of interest (use rate if available, otherwise use rateOfInterest, default to 12%)
+    const rate = loan.rate || loan.rateOfInterest || 12
+    
+    // Get period in days (use period from loan, calculate from dates, or default to 365)
+    let periodDays = loan.period || 0
+    if (!periodDays && loanDate && dueDate) {
+      const diffTime = dueDate.getTime() - loanDate.getTime()
+      periodDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    }
+    if (!periodDays) periodDays = 365 // Default to 1 year
+    
+    // Calculate present interest: (Loan Amount * Rate * Period in years) / 100
+    // Period in years = periodDays / 365
+    const periodYears = periodDays / 365
+    const presentInterest = (loan.loanAmount * rate * periodYears) / 100
+    
+    // Calculate total balance: Loan Amount + Interest - Amount Paid
+    const totalBalance = loan.loanAmount + presentInterest - amountPaid
+    
+    // Calculate penalty: Typically 1-2% per month on overdue amount, or based on due days
+    // For simplicity: 1% per 30 days overdue on total balance
+    let penalty = 0
+    if (dueDays > 0 && totalBalance > 0) {
+      const penaltyMonths = dueDays / 30
+      penalty = (totalBalance * penaltyMonths * 1) / 100 // 1% per month
+    }
+    
+    // Calculate total amount for renewal: Principal + Interest + Penalty
+    const totalAmtForRenewal = loan.loanAmount + presentInterest + penalty
+    
+    // Calculate total amount for close: Same as renewal
+    const totalAmtForClose = totalAmtForRenewal
+    
+    return {
+      amountPaid,
+      presentInterest: Math.round(presentInterest * 100) / 100,
+      totalBalance: Math.round(totalBalance * 100) / 100,
+      dueDays,
+      penalty: Math.round(penalty * 100) / 100,
+      totalAmtForRenewal: Math.round(totalAmtForRenewal * 100) / 100,
+      totalAmtForClose: Math.round(totalAmtForClose * 100) / 100,
+    }
+  }
+
   useEffect(() => {
     if (selectedAccount) {
       fetchAccountDetails(selectedAccount)
       fetchLedgerTransactions(selectedAccount)
     }
   }, [selectedAccount])
+
+  // Calculate loan details automatically when loan data and transactions are loaded
+  useEffect(() => {
+    if (selectedAccount && formData.loanAmount !== undefined && formData.loanAmount > 0 && ledgerTransactions) {
+      const todayDate = formData.date || new Date().toISOString().split('T')[0]
+      const calculated = calculateLoanDetails(formData, ledgerTransactions, todayDate)
+      
+      // Only update calculated fields, don't trigger re-render loops
+      setFormData(prev => {
+        // Skip update if values haven't changed (prevent infinite loop)
+        const hasChanges = 
+          prev.amountPaid !== calculated.amountPaid ||
+          prev.presentInterest !== calculated.presentInterest ||
+          prev.totalBalance !== calculated.totalBalance ||
+          prev.dueDays !== calculated.dueDays ||
+          prev.penalty !== calculated.penalty ||
+          prev.totalAmtForRenewal !== calculated.totalAmtForRenewal ||
+          prev.totalAmtForClose !== calculated.totalAmtForClose
+        
+        if (!hasChanges) return prev
+        
+        // Calculate dueDate if not set: loanDate + period days
+        let calculatedDueDate = prev.dueDate
+        if (!calculatedDueDate && prev.loanDate && prev.period) {
+          const loanDateObj = new Date(prev.loanDate)
+          loanDateObj.setDate(loanDateObj.getDate() + prev.period)
+          calculatedDueDate = loanDateObj.toISOString().split('T')[0]
+        } else if (!calculatedDueDate && prev.loanDate) {
+          const loanDateObj = new Date(prev.loanDate)
+          loanDateObj.setDate(loanDateObj.getDate() + 365) // Default to 365 days
+          calculatedDueDate = loanDateObj.toISOString().split('T')[0]
+        }
+        
+        return {
+          ...prev,
+          ...calculated,
+          // Set loanDate and dueDate if not already set
+          loanDate: prev.loanDate || prev.date,
+          dueDate: calculatedDueDate,
+        }
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAccount, formData.loanAmount, formData.rate, formData.rateOfInterest, formData.period, formData.date, JSON.stringify(ledgerTransactions)])
 
   const fetchAccounts = async () => {
     try {
@@ -68,6 +171,7 @@ export default function CDLedgerPage() {
         console.error('Error from API:', data.error)
         return
       }
+      // Set all loan details including images - images will automatically display
       setFormData(data)
     } catch (error) {
       console.error('Error fetching account details:', error)
@@ -302,30 +406,30 @@ export default function CDLedgerPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Amount Paid</label>
+                  <label className="block text-sm font-medium mb-1">Amount Paid <span className="text-xs text-gray-500">(Auto-calculated from ledger)</span></label>
                   <input
                     type="number"
                     value={formData.amountPaid || 0}
-                    onChange={(e) => handleInputChange('amountPaid', parseFloat(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Present Interest</label>
+                  <label className="block text-sm font-medium mb-1">Present Interest <span className="text-xs text-gray-500">(Auto-calculated)</span></label>
                   <input
                     type="number"
                     value={formData.presentInterest || 0}
-                    onChange={(e) => handleInputChange('presentInterest', parseFloat(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Total Balance</label>
+                  <label className="block text-sm font-medium mb-1">Total Balance <span className="text-xs text-gray-500">(Auto-calculated)</span></label>
                   <input
                     type="number"
                     value={formData.totalBalance || 0}
-                    onChange={(e) => handleInputChange('totalBalance', parseFloat(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
                   />
                 </div>
                 <div>
@@ -347,40 +451,40 @@ export default function CDLedgerPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Due Days</label>
+                  <label className="block text-sm font-medium mb-1">Due Days <span className="text-xs text-gray-500">(Auto-calculated)</span></label>
                   <input
                     type="number"
                     value={formData.dueDays || 0}
-                    onChange={(e) => handleInputChange('dueDays', parseInt(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Penalty</label>
+                  <label className="block text-sm font-medium mb-1">Penalty <span className="text-xs text-gray-500">(Auto-calculated)</span></label>
                   <input
                     type="number"
                     step="0.01"
                     value={formData.penalty || 0}
-                    onChange={(e) => handleInputChange('penalty', parseFloat(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Total Amt for Renewal</label>
+                  <label className="block text-sm font-medium mb-1">Total Amt for Renewal <span className="text-xs text-gray-500">(Auto-calculated)</span></label>
                   <input
                     type="number"
                     value={formData.totalAmtForRenewal || 0}
-                    onChange={(e) => handleInputChange('totalAmtForRenewal', parseFloat(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Total Amt for Close</label>
+                  <label className="block text-sm font-medium mb-1">Total Amt for Close <span className="text-xs text-gray-500">(Auto-calculated)</span></label>
                   <input
                     type="number"
                     value={formData.totalAmtForClose || 0}
-                    onChange={(e) => handleInputChange('totalAmtForClose', parseFloat(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
                   />
                 </div>
                 <div>
@@ -496,10 +600,11 @@ export default function CDLedgerPage() {
 
           {/* Right Panel - Transaction Ledger */}
           <div className="space-y-6">
-            {/* Image Upload Components */}
+            {/* Image Upload Components - Automatically loaded when loan is selected */}
             {selectedAccount && (
               <div className="grid grid-cols-2 gap-4">
                 <ImageUpload
+                  key={`customer-${selectedAccount}`}
                   imageUrl={formData.customerImageUrl}
                   label="Loan Person"
                   loanId={selectedAccount}
@@ -538,6 +643,7 @@ export default function CDLedgerPage() {
                   }}
                 />
                 <ImageUpload
+                  key={`guarantor1-${selectedAccount}`}
                   imageUrl={formData.guarantor1ImageUrl}
                   label="Surety Person"
                   loanId={selectedAccount}

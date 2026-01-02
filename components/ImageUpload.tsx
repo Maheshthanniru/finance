@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Upload, X, Loader2, Edit2 } from 'lucide-react'
 
 interface ImageUploadProps {
@@ -25,6 +25,11 @@ export default function ImageUpload({
   const [uploading, setUploading] = useState(false)
   const [preview, setPreview] = useState<string | null>(imageUrl || null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Update preview when imageUrl prop changes (when loan is selected)
+  useEffect(() => {
+    setPreview(imageUrl || null)
+  }, [imageUrl])
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
