@@ -128,11 +128,13 @@ export default function PhoneNumbersEditPage() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
               >
                 <option value="">Select Account</option>
-                {accounts.map((loan) => (
-                  <option key={loan.id} value={loan.id}>
-                    {loan.loanType}-{loan.number} - {loan.customerName}
-                  </option>
-                ))}
+                {accounts
+                  .filter(loan => loan.id) // Only include loans with IDs
+                  .map((loan) => (
+                    <option key={loan.id} value={loan.id!}>
+                      {loan.loanType}-{loan.number} - {loan.customerName}
+                    </option>
+                  ))}
               </select>
             </div>
 

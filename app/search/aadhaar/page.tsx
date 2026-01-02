@@ -37,9 +37,10 @@ export default function AadhaarSearchPage() {
         ...(data.asGuarantor2 || [])
       ]
       
-      // Remove duplicates based on loan id
+      // Remove duplicates based on loan id (only include loans with IDs)
+      const loansWithIds = allResults.filter(loan => loan.id)
       const uniqueLoans = Array.from(
-        new Map(allResults.map(loan => [loan.id, loan])).values()
+        new Map(loansWithIds.map(loan => [loan.id!, loan])).values()
       )
       
       setFoundedRecords(uniqueLoans)

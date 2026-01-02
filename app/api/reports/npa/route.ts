@@ -16,13 +16,15 @@ export async function GET(request: NextRequest) {
     // Filter NPA loans (for now, we'll mark loans with due date passed as NPA)
     let npaLoans: NPALoan[] = loans
       .filter(loan => {
+        // Only process loans with IDs (all loans from DB should have IDs)
+        if (!loan.id) return false
         if (partner && loan.partnerName !== partner) return false
         if (aadhaar && !loan.aadhaar?.includes(aadhaar)) return false
         if (name && !loan.customerName.toLowerCase().includes(name.toLowerCase())) return false
         return true
       })
       .map(loan => ({
-        id: loan.id,
+        id: loan.id!, // Non-null assertion safe because we filtered above
         date: loan.date,
         number: `${loan.loanType}-${loan.number}`,
         name: loan.customerName,

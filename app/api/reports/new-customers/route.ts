@@ -23,10 +23,13 @@ export async function GET(request: NextRequest) {
     const uniqueCustomers = new Map<string, any>()
     
     filteredLoans.forEach(loan => {
+      // Skip loans without IDs (shouldn't happen for DB loans, but defensive check)
+      if (!loan.id) return
+      
       const key = `${loan.customerName}-${loan.aadhaar || ''}`
       if (!uniqueCustomers.has(key)) {
         uniqueCustomers.set(key, {
-          id: loan.id,
+          id: loan.id, // Safe now because we checked above
           customerName: loan.customerName,
           fatherName: loan.fatherName,
           aadhaar: loan.aadhaar,
