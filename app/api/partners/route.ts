@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getPartners, savePartner } from '@/lib/data'
+import { getPartners, savePartner, getNextPartnerId } from '@/lib/data'
 import { Partner } from '@/types'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // Check if requesting next partner ID
+    const searchParams = request.nextUrl.searchParams
+    if (searchParams.get('nextId') === 'true') {
+      const nextId = await getNextPartnerId()
+      return NextResponse.json({ nextPartnerId: nextId })
+    }
+    
     const partners = await getPartners()
     return NextResponse.json(partners)
   } catch (error) {

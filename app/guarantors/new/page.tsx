@@ -40,17 +40,25 @@ export default function NewGuarantorPage() {
 
   useEffect(() => {
     fetchGuarantors()
+    fetchNextGuarantorId()
   }, [])
 
-  useEffect(() => {
-    // Set initial guarantorId based on existing guarantors
-    if (guarantors.length > 0 && (!formData.guarantorId || formData.guarantorId === 1)) {
-      const maxGuarantorId = Math.max(...guarantors.map(g => g.guarantorId || 0), 0)
-      if (maxGuarantorId > 0) {
+  const fetchNextGuarantorId = async () => {
+    try {
+      const response = await fetch('/api/guarantors?nextId=true')
+      if (response.ok) {
+        const data = await response.json()
+        setFormData(prev => ({ ...prev, guarantorId: data.nextGuarantorId || 1 }))
+      }
+    } catch (error) {
+      console.error('Error fetching next guarantor ID:', error)
+      // Fallback: calculate from existing guarantors
+      if (guarantors.length > 0) {
+        const maxGuarantorId = Math.max(...guarantors.map(g => g.guarantorId || 0), 0)
         setFormData(prev => ({ ...prev, guarantorId: maxGuarantorId + 1 }))
       }
     }
-  }, [guarantors])
+  }
 
   const fetchGuarantors = async () => {
     try {
@@ -79,11 +87,6 @@ export default function NewGuarantorPage() {
         return
       }
       
-      if (!formData.guarantorId || formData.guarantorId <= 0) {
-        alert('Please enter a valid Guarantor ID')
-        return
-      }
-      
       setSavingGuarantor(true)
       const response = await fetch('/api/guarantors', {
         method: 'POST',
@@ -95,11 +98,10 @@ export default function NewGuarantorPage() {
         const savedGuarantor = await response.json()
         alert('Guarantor saved successfully!')
         // Reset form for new entry
-        const maxGuarantorId = guarantors.length > 0 
-          ? Math.max(...guarantors.map(g => g.guarantorId || 0), 0)
-          : 0
-        setFormData({ 
-          guarantorId: maxGuarantorId + 2, 
+        await fetchGuarantors()
+        await fetchNextGuarantorId()
+        setFormData(prev => ({ 
+          ...prev,
           name: '',
           address: '',
           aadhaar: '',
@@ -111,9 +113,7 @@ export default function NewGuarantorPage() {
           phone2: '',
           imageUrl: '',
           id: undefined
-        })
-        // Refresh guarantors list
-        await fetchGuarantors()
+        }))
       } else {
         const errorData = await response.json().catch(() => ({}))
         const errorMessage = errorData.message || errorData.error || 'Error saving guarantor'
@@ -128,12 +128,10 @@ export default function NewGuarantorPage() {
     }
   }
 
-  const handleReset = () => {
-    const maxGuarantorId = guarantors.length > 0 
-      ? Math.max(...guarantors.map(g => g.guarantorId || 0), 0)
-      : 0
-    setFormData({ 
-      guarantorId: maxGuarantorId + 1, 
+  const handleReset = async () => {
+    await fetchNextGuarantorId()
+    setFormData(prev => ({ 
+      ...prev,
       name: '',
       address: '',
       aadhaar: '',
@@ -145,7 +143,7 @@ export default function NewGuarantorPage() {
       phone2: '',
       imageUrl: '',
       id: undefined
-    })
+    }))
   }
 
   return (
@@ -172,12 +170,13 @@ export default function NewGuarantorPage() {
               <div>
                 <label className="block text-sm font-medium mb-1">
                   Guarantor ID: <span className="text-red-500">*</span>
+                  <span className="text-xs text-gray-500 ml-2">(Auto-generated)</span>
                 </label>
                 <input
                   type="number"
                   value={formData.guarantorId || ''}
-                  onChange={(e) => handleInputChange('guarantorId', parseInt(e.target.value) || 0)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  readOnly
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed"
                   required
                 />
               </div>

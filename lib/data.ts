@@ -231,11 +231,17 @@ export async function getPartners(): Promise<Partner[]> {
 
 export async function savePartner(partner: Partner): Promise<void> {
   try {
+    // Auto-generate partner ID if not provided
+    let partnerId = partner.partnerId;
+    if (!partnerId || partnerId <= 0) {
+      partnerId = await getNextPartnerId();
+    }
+
     const partnerData: any = {
       name: partner.name,
       phone: partner.phone || null,
       address: partner.address || null,
-      partner_id: partner.partnerId || null,
+      partner_id: partnerId,
       is_md: partner.isMD || false,
       md_name: partner.mdName || null,
       village: partner.village || null,
@@ -250,6 +256,9 @@ export async function savePartner(partner: Partner): Promise<void> {
     const { error } = await supabase
       .from('partners')
       .upsert(partnerData, { onConflict: partner.id ? 'id' : undefined });
+    
+    // Update the partner object with the generated ID
+    partner.partnerId = partnerId;
 
     if (error) throw error;
   } catch (error) {
@@ -323,6 +332,94 @@ export async function getNextCustomerId(): Promise<number> {
     return maxId + 1;
   } catch (error: any) {
     console.error('Error getting next customer ID:', error);
+    return 1; // Default to 1 on error
+  }
+}
+
+export async function getNextGuarantorId(): Promise<number> {
+  try {
+    if (!isSupabaseConfigured()) {
+      return 1; // Default to 1 if Supabase is not configured
+    }
+
+    const { data, error } = await supabase
+      .from('guarantors')
+      .select('guarantor_id')
+      .order('guarantor_id', { ascending: false })
+      .limit(1);
+
+    if (error) {
+      console.error('Error fetching max guarantor ID:', error);
+      return 1; // Default to 1 on error
+    }
+
+    if (!data || data.length === 0) {
+      return 1; // No guarantors yet, start with 1
+    }
+
+    const maxId = data[0].guarantor_id || 0;
+    return maxId + 1;
+  } catch (error: any) {
+    console.error('Error getting next guarantor ID:', error);
+    return 1; // Default to 1 on error
+  }
+}
+
+export async function getNextPartnerId(): Promise<number> {
+  try {
+    if (!isSupabaseConfigured()) {
+      return 1; // Default to 1 if Supabase is not configured
+    }
+
+    const { data, error } = await supabase
+      .from('partners')
+      .select('partner_id')
+      .order('partner_id', { ascending: false })
+      .limit(1);
+
+    if (error) {
+      console.error('Error fetching max partner ID:', error);
+      return 1; // Default to 1 on error
+    }
+
+    if (!data || data.length === 0) {
+      return 1; // No partners yet, start with 1
+    }
+
+    const maxId = data[0].partner_id || 0;
+    return maxId + 1;
+  } catch (error: any) {
+    console.error('Error getting next partner ID:', error);
+    return 1; // Default to 1 on error
+  }
+}
+
+export async function getNextLoanNumber(): Promise<number> {
+  try {
+    if (!isSupabaseConfigured()) {
+      return 1; // Default to 1 if Supabase is not configured
+    }
+
+    const { data, error } = await supabase
+      .from('loans')
+      .select('number')
+      .eq('is_deleted', false)
+      .order('number', { ascending: false })
+      .limit(1);
+
+    if (error) {
+      console.error('Error fetching max loan number:', error);
+      return 1; // Default to 1 on error
+    }
+
+    if (!data || data.length === 0) {
+      return 1; // No loans yet, start with 1
+    }
+
+    const maxNumber = data[0].number || 0;
+    return maxNumber + 1;
+  } catch (error: any) {
+    console.error('Error getting next loan number:', error);
     return 1; // Default to 1 on error
   }
 }
@@ -528,8 +625,14 @@ export async function saveGuarantor(guarantor: any): Promise<void> {
       throw new Error('Supabase is not configured');
     }
 
+    // Auto-generate guarantor ID if not provided
+    let guarantorId = guarantor.guarantorId;
+    if (!guarantorId || guarantorId <= 0) {
+      guarantorId = await getNextGuarantorId();
+    }
+
     const guarantorData: any = {
-      guarantor_id: guarantor.guarantorId,
+      guarantor_id: guarantorId,
       aadhaar: guarantor.aadhaar || null,
       name: guarantor.name,
       father: guarantor.father || null,
@@ -552,6 +655,9 @@ export async function saveGuarantor(guarantor: any): Promise<void> {
     const { error } = await supabase
       .from('guarantors')
       .upsert(guarantorData, { onConflict: guarantor.id ? 'id' : 'guarantor_id' });
+    
+    // Update the guarantor object with the generated ID
+    guarantor.guarantorId = guarantorId;
 
     if (error) throw error;
   } catch (error) {

@@ -30,17 +30,25 @@ export default function NewPartnerPage() {
 
   useEffect(() => {
     fetchPartners()
+    fetchNextPartnerId()
   }, [])
 
-  useEffect(() => {
-    // Set initial partnerId based on existing partners
-    if (partners.length > 0 && (!formData.partnerId || formData.partnerId === 1)) {
-      const maxPartnerId = Math.max(...partners.map(p => p.partnerId || 0), 0)
-      if (maxPartnerId > 0) {
+  const fetchNextPartnerId = async () => {
+    try {
+      const response = await fetch('/api/partners?nextId=true')
+      if (response.ok) {
+        const data = await response.json()
+        setFormData(prev => ({ ...prev, partnerId: data.nextPartnerId || 1 }))
+      }
+    } catch (error) {
+      console.error('Error fetching next partner ID:', error)
+      // Fallback: calculate from existing partners
+      if (partners.length > 0) {
+        const maxPartnerId = Math.max(...partners.map(p => p.partnerId || 0), 0)
         setFormData(prev => ({ ...prev, partnerId: maxPartnerId + 1 }))
       }
     }
-  }, [partners])
+  }
 
   const fetchPartners = async () => {
     try {
@@ -64,11 +72,6 @@ export default function NewPartnerPage() {
         return
       }
       
-      if (!formData.partnerId || formData.partnerId <= 0) {
-        alert('Please enter a valid Partner ID')
-        return
-      }
-      
       setLoading(true)
       const response = await fetch('/api/partners', {
         method: 'POST',
@@ -79,11 +82,10 @@ export default function NewPartnerPage() {
       if (response.ok) {
         alert('Partner saved successfully!')
         // Reset form for new entry
-        const maxPartnerId = partners.length > 0 
-          ? Math.max(...partners.map(p => p.partnerId || 0), 0)
-          : 0
-        setFormData({ 
-          partnerId: maxPartnerId + 2, 
+        await fetchPartners()
+        await fetchNextPartnerId()
+        setFormData(prev => ({ 
+          ...prev,
           isMD: false,
           name: '',
           phone: '',
@@ -91,8 +93,7 @@ export default function NewPartnerPage() {
           mdName: '',
           village: '',
           homePhone: ''
-        })
-        fetchPartners()
+        }))
       } else {
         const errorData = await response.json().catch(() => ({}))
         const errorMessage = errorData.message || errorData.error || 'Error saving partner'
@@ -107,12 +108,10 @@ export default function NewPartnerPage() {
     }
   }
 
-  const handleReset = () => {
-    const maxPartnerId = partners.length > 0 
-      ? Math.max(...partners.map(p => p.partnerId || 0), 0)
-      : 0
-    setFormData({ 
-      partnerId: maxPartnerId + 1, 
+  const handleReset = async () => {
+    await fetchNextPartnerId()
+    setFormData(prev => ({ 
+      ...prev,
       isMD: false,
       name: '',
       phone: '',
@@ -120,7 +119,7 @@ export default function NewPartnerPage() {
       mdName: '',
       village: '',
       homePhone: ''
-    })
+    }))
   }
 
   return (
@@ -147,12 +146,13 @@ export default function NewPartnerPage() {
               <div>
                 <label className="block text-sm font-medium mb-1">
                   PartnerID: <span className="text-red-500">*</span>
+                  <span className="text-xs text-gray-500 ml-2">(Auto-generated)</span>
                 </label>
                 <input
                   type="number"
                   value={formData.partnerId || ''}
-                  onChange={(e) => handleInputChange('partnerId', parseInt(e.target.value) || 0)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  readOnly
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed"
                   required
                 />
               </div>

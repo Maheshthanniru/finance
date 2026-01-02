@@ -33,9 +33,27 @@ export default function LoansEntryForm() {
     fetchCustomers()
     fetchPartners()
     fetchGuarantors()
+    fetchNextLoanNumber()
     // Set current time on client side only to avoid hydration mismatch
     setCurrentTime(new Date().toLocaleString())
   }, [])
+
+  const fetchNextLoanNumber = async () => {
+    try {
+      const response = await fetch('/api/loans?nextNumber=true')
+      if (response.ok) {
+        const data = await response.json()
+        setFormData(prev => ({ ...prev, number: data.nextLoanNumber || 1 }))
+      }
+    } catch (error) {
+      console.error('Error fetching next loan number:', error)
+      // Fallback: use existing loans length
+      if (existingLoans.length > 0) {
+        const maxNumber = Math.max(...existingLoans.map(l => l.number || 0), 0)
+        setFormData(prev => ({ ...prev, number: maxNumber + 1 }))
+      }
+    }
+  }
 
   useEffect(() => {
     // Fetch day book details when date changes
@@ -180,7 +198,7 @@ export default function LoansEntryForm() {
 
     const loan: Loan = {
       id: `loan-${Date.now()}`,
-      number: formData.number || existingLoans.length + 1,
+      number: formData.number || 1,
       date: formData.date || new Date().toISOString().split('T')[0],
       loanType: formData.loanType || 'CD',
       customerName: formData.customerName || '',
@@ -212,6 +230,8 @@ export default function LoansEntryForm() {
 
       if (response.ok) {
         alert('Loan saved successfully!')
+        await fetchLoans()
+        await fetchNextLoanNumber()
         router.push('/')
       } else {
         const errorData = await response.json().catch(() => ({}))
@@ -286,12 +306,15 @@ export default function LoansEntryForm() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Number</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Number
+                  <span className="text-xs text-gray-500 ml-2">(Auto-generated)</span>
+                </label>
                 <input
                   type="number"
                   value={formData.number || ''}
-                  onChange={(e) => handleInputChange('number', parseInt(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  readOnly
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed"
                 />
               </div>
 
@@ -431,13 +454,13 @@ export default function LoansEntryForm() {
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Select Guarantor 2 (Auto-fill)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Select Guarantor 2 (Optional - Auto-fill)</label>
                 <select
                   value={selectedGuarantor2Id}
                   onChange={(e) => handleGuarantorSelect(2, e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
                 >
-                  <option value="">-- Select Guarantor 2 to Auto-fill --</option>
+                  <option value="">-- Select Guarantor 2 to Auto-fill (Optional) --</option>
                   {guarantors.map((guarantor) => (
                     <option key={guarantor.id} value={guarantor.id}>
                       {guarantor.guarantorId ? `${guarantor.guarantorId} - ` : ''}{guarantor.name}
@@ -447,7 +470,7 @@ export default function LoansEntryForm() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Guarantor 2</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Guarantor 2 (Optional)</label>
                 <input
                   type="text"
                   value={formData.guarantor2?.name || ''}
@@ -460,7 +483,7 @@ export default function LoansEntryForm() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Guarantor 2 Aadhaar</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Guarantor 2 Aadhaar (Optional)</label>
                 <input
                   type="text"
                   value={formData.guarantor2?.aadhaar || ''}
@@ -473,7 +496,7 @@ export default function LoansEntryForm() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Guarantor 2 Phone</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Guarantor 2 Phone (Optional)</label>
                 <input
                   type="tel"
                   value={formData.guarantor2?.phone || ''}

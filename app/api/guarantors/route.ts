@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getGuarantors, saveGuarantor } from '@/lib/data'
+import { getGuarantors, saveGuarantor, getNextGuarantorId } from '@/lib/data'
 import { getSupabaseClient } from '@/lib/supabase'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // Check if requesting next guarantor ID
+    const searchParams = request.nextUrl.searchParams
+    if (searchParams.get('nextId') === 'true') {
+      const nextId = await getNextGuarantorId()
+      return NextResponse.json({ nextGuarantorId: nextId })
+    }
+    
     const guarantors = await getGuarantors()
     return NextResponse.json(guarantors)
   } catch (error) {
