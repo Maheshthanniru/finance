@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Save, X } from 'lucide-react'
+import { ArrowLeft, Save, X, RefreshCw } from 'lucide-react'
 import { TBDLoan, LedgerTransaction } from '@/types'
-import { format } from 'date-fns'
+import { format as formatDateFns } from 'date-fns'
 import ImageUpload from '@/components/ImageUpload'
 
 export default function TBDLedgerPage() {
@@ -69,7 +69,16 @@ export default function TBDLedgerPage() {
         console.error('Error from API:', data.error)
         return
       }
-      setFormData(data)
+      
+      // Ensure dates are properly formatted (YYYY-MM-DD)
+      const formattedData = {
+        ...data,
+        date: data.date ? data.date.split('T')[0] : new Date().toISOString().split('T')[0],
+        joinedDate: data.joinedDate ? data.joinedDate.split('T')[0] : (data.date ? data.date.split('T')[0] : ''),
+        dueDate: data.dueDate ? data.dueDate.split('T')[0] : '',
+      }
+      
+      setFormData(formattedData)
     } catch (error) {
       console.error('Error fetching account details:', error)
     }
@@ -135,8 +144,14 @@ export default function TBDLedgerPage() {
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return ''
-    const date = new Date(dateStr)
-    return format(date, 'dd-MMM-yy')
+    try {
+      const date = new Date(dateStr)
+      if (isNaN(date.getTime())) return dateStr
+      return formatDateFns(date, 'dd-MMM-yy')
+    } catch (error) {
+      console.error('Error formatting date:', dateStr, error)
+      return dateStr
+    }
   }
 
   const handleRenewal = async () => {
@@ -147,12 +162,18 @@ export default function TBDLedgerPage() {
 
     // Calculate renewal amount: loan amount + due amount
     const renewalAmount = (formData.loanAmount || 0) + (formData.dueAmount || 0)
+    if (renewalAmount <= 0) {
+      alert('Please enter a valid renewal amount')
+      return
+    }
+
+    const premiumDays = formData.premiumDays || 30
     const confirmMessage = `Renew loan for ${formData.customerName || 'this account'}?\n\n` +
       `Renewal Amount: ₹${formatCurrency(renewalAmount)}\n\n` +
       `This will:\n` +
       `1. Record a payment transaction of ₹${formatCurrency(renewalAmount)}\n` +
-      `2. Update loan dates (Joined Date = Current Date, Due Date = Current Date + Premium Days)\n` +
-      `3. Reset premium calculations\n\n` +
+      `2. Update loan dates (Joined Date = Current Date, Due Date = Current Date + ${premiumDays} days)\n` +
+      `3. Reset premium calculations (Paid Amount = 0, Paid Days = 0, Due Amount = Loan Amount)\n\n` +
       `Continue?`
 
     if (!confirm(confirmMessage)) {
@@ -163,12 +184,11 @@ export default function TBDLedgerPage() {
       const renewalDate = new Date().toISOString().split('T')[0]
       
       // Calculate new due date: renewal date + premium days
-      const premiumDays = formData.premiumDays || 30
       const renewalDateObj = new Date(renewalDate + 'T00:00:00')
       renewalDateObj.setDate(renewalDateObj.getDate() + premiumDays)
       const newDueDate = renewalDateObj.toISOString().split('T')[0]
 
-      // Step 1: Create payment transaction
+      // Step 1: Create payment transaction (debit entry)
       const transaction = {
         id: '',
         date: renewalDate,
@@ -192,14 +212,17 @@ export default function TBDLedgerPage() {
         throw new Error(error.error || 'Failed to create transaction')
       }
 
-      // Step 2: Update loan
+      // Step 2: Update loan with new dates - use 'date' field (main loan date) and joinedDate
       const updatedLoan = {
         ...formData,
-        joinedDate: renewalDate,
+        date: renewalDate, // Update main loan date
+        joinedDate: renewalDate, // Update TBD-specific joinedDate
         dueDate: newDueDate,
         paidAmount: 0,
         paidDays: 0,
         dueAmount: formData.loanAmount || 0,
+        totalDays: premiumDays, // Reset total days to premium days
+        dueDays: premiumDays, // Reset due days
       }
 
       const loanResponse = await fetch(`/api/loans/${selectedAccount}`, {
@@ -213,8 +236,9 @@ export default function TBDLedgerPage() {
         throw new Error(error.error || 'Failed to update loan')
       }
 
-      alert(`Loan renewed successfully!\n\nPayment recorded: ₹${formatCurrency(renewalAmount)}\nNew Due Date: ${new Date(newDueDate).toLocaleDateString()}`)
+      alert(`Loan renewed successfully!\n\nPayment recorded: ₹${formatCurrency(renewalAmount)}\nNew Joined Date: ${formatDate(renewalDate)}\nNew Due Date: ${formatDate(newDueDate)}`)
       
+      // Refresh data
       await fetchAccountDetails(selectedAccount)
       await fetchLedgerTransactions(selectedAccount)
       await fetchAccounts()
@@ -275,8 +299,26 @@ export default function TBDLedgerPage() {
         throw new Error(error.error || 'Failed to create transaction')
       }
 
-      alert(`Loan closed successfully!\n\nFinal payment recorded: ₹${formatCurrency(closeAmount)}`)
+      // Step 2: Update loan date to close date (optional - mark as closed)
+      const updatedLoan = {
+        ...formData,
+        date: closeDate,
+        lastDate: closeDate,
+      }
+
+      const loanResponse = await fetch(`/api/loans/${selectedAccount}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedLoan),
+      })
+
+      if (!loanResponse.ok) {
+        console.warn('Loan updated but transaction was recorded:', loanResponse)
+      }
+
+      alert(`Loan closed successfully!\n\nFinal payment recorded: ₹${formatCurrency(closeAmount)}\nClosed on: ${formatDate(closeDate)}`)
       
+      // Refresh data
       await fetchAccountDetails(selectedAccount)
       await fetchLedgerTransactions(selectedAccount)
       await fetchAccounts()
@@ -319,12 +361,21 @@ export default function TBDLedgerPage() {
           <label className="text-sm font-medium">Today's Date:</label>
           <input
             type="date"
-            value={formData.date}
+            value={formData.date || new Date().toISOString().split('T')[0]}
             onChange={(e) => handleInputChange('date', e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-md"
           />
+          <button
+            onClick={() => {
+              const today = new Date().toISOString().split('T')[0]
+              handleInputChange('date', today)
+            }}
+            className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 rounded-md text-sm"
+          >
+            Set Today
+          </button>
           <div className="ml-auto">
-            <span className="text-sm font-medium">0 Total Amount: </span>
+            <span className="text-sm font-medium">Total Amount: </span>
             <input
               type="text"
               value={formatCurrency(totalAmount)}
@@ -494,8 +545,14 @@ export default function TBDLedgerPage() {
                   <label className="block text-sm font-medium mb-1">Joined Date:</label>
                   <input
                     type="date"
-                    value={formData.joinedDate || ''}
-                    onChange={(e) => handleInputChange('joinedDate', e.target.value)}
+                    value={formData.joinedDate || formData.date || ''}
+                    onChange={(e) => {
+                      handleInputChange('joinedDate', e.target.value)
+                      // Also update main date field if joinedDate is the primary date
+                      if (!formData.date) {
+                        handleInputChange('date', e.target.value)
+                      }
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   />
                 </div>
@@ -507,6 +564,20 @@ export default function TBDLedgerPage() {
                     onChange={(e) => handleInputChange('dueDate', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   />
+                  {formData.joinedDate && formData.premiumDays && !formData.dueDate && (
+                    <button
+                      onClick={() => {
+                        // Calculate due date: joined date + premium days
+                        const joinedDateObj = new Date((formData.joinedDate || formData.date) + 'T00:00:00')
+                        const dueDateObj = new Date(joinedDateObj)
+                        dueDateObj.setDate(dueDateObj.getDate() + (formData.premiumDays || 30))
+                        handleInputChange('dueDate', dueDateObj.toISOString().split('T')[0])
+                      }}
+                      className="mt-1 text-xs text-blue-600 hover:text-blue-800 underline"
+                    >
+                      Calculate from Joined Date + Premium Days
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="mt-4 flex gap-4">
@@ -531,6 +602,19 @@ export default function TBDLedgerPage() {
                 >
                   <X className="w-5 h-5" />
                   Close Account
+                </button>
+                <button
+                  onClick={() => {
+                    if (selectedAccount) {
+                      fetchAccountDetails(selectedAccount)
+                      fetchLedgerTransactions(selectedAccount)
+                    }
+                  }}
+                  disabled={!selectedAccount}
+                  className="bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-6 py-2 rounded-md flex items-center gap-2"
+                >
+                  <RefreshCw className="w-5 h-5" />
+                  Refresh
                 </button>
               </div>
             </div>

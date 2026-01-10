@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Save, X } from 'lucide-react'
+import CustomerImageUpload from '@/components/CustomerImageUpload'
 
 interface Guarantor {
   id?: string
@@ -37,6 +38,8 @@ export default function NewGuarantorPage() {
   const [guarantors, setGuarantors] = useState<Guarantor[]>([])
   const [loading, setLoading] = useState(false)
   const [savingGuarantor, setSavingGuarantor] = useState(false)
+  const [savedGuarantorId, setSavedGuarantorId] = useState<string | null>(null)
+  const [resetImageTrigger, setResetImageTrigger] = useState(0)
 
   useEffect(() => {
     fetchGuarantors()
@@ -86,20 +89,84 @@ export default function NewGuarantorPage() {
         alert('Please enter Address')
         return
       }
+
+      // Check if image needs to be uploaded (if it's a preview URL from before save)
+      const isPreviewUrl = formData.imageUrl && formData.imageUrl.startsWith('data:image')
+      let imageUrlToSave = formData.imageUrl
       
       setSavingGuarantor(true)
+      
+      // First save guarantor without image if it's a preview URL
+      const dataToSave = {
+        ...formData,
+        imageUrl: isPreviewUrl ? undefined : formData.imageUrl, // Don't send preview URL
+      }
+      
       const response = await fetch('/api/guarantors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(dataToSave),
       })
       
       if (response.ok) {
-        const savedGuarantor = await response.json()
-        alert('Guarantor saved successfully!')
+        const result = await response.json()
+        const savedGuarantor = result.guarantor || result
+        
+        // Get the saved guarantor ID
+        const guarantorId = savedGuarantor.id || result.id
+        
+        if (guarantorId) {
+          setSavedGuarantorId(guarantorId)
+          
+          // If there's a preview image (data URL), upload it now
+          if (isPreviewUrl && formData.imageUrl) {
+            try {
+              // Convert data URL to blob and create File
+              const base64Data = formData.imageUrl.split(',')[1]
+              const byteCharacters = atob(base64Data)
+              const byteNumbers = new Array(byteCharacters.length)
+              for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i)
+              }
+              const byteArray = new Uint8Array(byteNumbers)
+              const blob = new Blob([byteArray], { type: 'image/jpeg' })
+              const file = new File([blob], `guarantor-photo-${Date.now()}.jpg`, { type: 'image/jpeg' })
+              
+              const uploadFormData = new FormData()
+              uploadFormData.append('file', file)
+              
+              const uploadResponse = await fetch(`/api/guarantors/${guarantorId}/images`, {
+                method: 'POST',
+                body: uploadFormData,
+              })
+              
+              if (uploadResponse.ok) {
+                const uploadData = await uploadResponse.json()
+                imageUrlToSave = uploadData.url
+                console.log('Image uploaded successfully:', uploadData.url)
+                alert('Guarantor and photo saved successfully!')
+              } else {
+                const errorData = await uploadResponse.json().catch(() => ({}))
+                console.warn('Failed to upload image:', errorData.error || 'Unknown error')
+                // Show warning but don't fail the entire save
+                alert(`Guarantor saved successfully, but image upload failed: ${errorData.error || 'Unknown error'}`)
+              }
+            } catch (error: any) {
+              console.error('Error uploading image after save:', error)
+              // Show warning but don't fail the entire save
+              alert(`Guarantor saved successfully, but image upload failed: ${error.message || 'Unknown error'}`)
+            }
+          } else {
+            alert('Guarantor saved successfully!')
+          }
+        } else {
+          alert('Guarantor saved successfully!')
+        }
+        
         // Reset form for new entry
         await fetchGuarantors()
         await fetchNextGuarantorId()
+        setResetImageTrigger(prev => prev + 1) // Reset image upload component
         setFormData(prev => ({ 
           ...prev,
           name: '',
@@ -114,6 +181,7 @@ export default function NewGuarantorPage() {
           imageUrl: '',
           id: undefined
         }))
+        setSavedGuarantorId(null)
       } else {
         const errorData = await response.json().catch(() => ({}))
         const errorMessage = errorData.message || errorData.error || 'Error saving guarantor'
@@ -130,6 +198,7 @@ export default function NewGuarantorPage() {
 
   const handleReset = async () => {
     await fetchNextGuarantorId()
+    setResetImageTrigger(prev => prev + 1) // Reset image upload component
     setFormData(prev => ({ 
       ...prev,
       name: '',
@@ -144,6 +213,60 @@ export default function NewGuarantorPage() {
       imageUrl: '',
       id: undefined
     }))
+    setSavedGuarantorId(null)
+  }
+
+  const handleImageUpload = async (file: File): Promise<string> => {
+    // If guarantor is already saved, upload image immediately
+    if (savedGuarantorId) {
+      const uploadFormData = new FormData()
+      uploadFormData.append('file', file)
+      
+      const response = await fetch(`/api/guarantors/${savedGuarantorId}/images`, {
+        method: 'POST',
+        body: uploadFormData,
+      })
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Upload failed')
+      }
+      
+      const data = await response.json()
+      // Update form data with image URL
+      setFormData(prev => ({ ...prev, imageUrl: data.url }))
+      return data.url
+    } else {
+      // If guarantor is not saved yet, create preview (data URL) for display
+      // The image will be uploaded when guarantor is saved
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onloadend = () => {
+          const previewUrl = reader.result as string
+          setFormData(prev => ({ ...prev, imageUrl: previewUrl }))
+          resolve(previewUrl)
+        }
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+    }
+  }
+
+  const handleImageDelete = async (): Promise<void> => {
+    if (savedGuarantorId && formData.imageUrl && !formData.imageUrl.startsWith('data:')) {
+      // Only call API if image is actually uploaded (not a preview)
+      const response = await fetch(`/api/guarantors/${savedGuarantorId}/images`, {
+        method: 'DELETE',
+      })
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Delete failed')
+      }
+    }
+    
+    // Remove from form data
+    setFormData(prev => ({ ...prev, imageUrl: undefined }))
   }
 
   return (
@@ -281,6 +404,27 @@ export default function NewGuarantorPage() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                   />
                 </div>
+              </div>
+
+              {/* Guarantor Photo Upload */}
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Guarantor Photo:
+                </label>
+                <CustomerImageUpload
+                  imageUrl={formData.imageUrl}
+                  onUpload={handleImageUpload}
+                  onDelete={handleImageDelete}
+                  label="Guarantor Photo"
+                  customerId={savedGuarantorId || undefined}
+                  className="w-full"
+                  resetTrigger={resetImageTrigger}
+                />
+                {!savedGuarantorId && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Note: Photo will be saved when you save the guarantor record
+                  </p>
+                )}
               </div>
             </div>
 

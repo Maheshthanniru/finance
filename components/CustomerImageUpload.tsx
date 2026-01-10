@@ -29,6 +29,7 @@ export default function CustomerImageUpload({
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Update preview when imageUrl prop changes
   useEffect(() => {
@@ -209,9 +210,31 @@ export default function CustomerImageUpload({
     }
   }
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      processFile(file)
+    }
+    // Reset input value so the same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
+  const handleFileButtonClick = () => {
+    fileInputRef.current?.click()
+  }
+
   return (
     <div className={`relative ${className}`}>
       <canvas ref={canvasRef} className="hidden" />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileSelect}
+        className="hidden"
+      />
       
       {showCamera ? (
         <div className="relative border-2 border-orange-500 rounded-lg overflow-hidden bg-gray-900">
@@ -297,24 +320,34 @@ export default function CustomerImageUpload({
               </div>
             </div>
           ) : (
-            <button
-              onClick={handleCameraClick}
-              disabled={uploading}
-              className="w-full h-48 flex flex-col items-center justify-center text-gray-500 hover:text-orange-600 transition-colors disabled:opacity-50"
-            >
-              {uploading ? (
-                <>
-                  <Loader2 className="w-12 h-12 animate-spin mb-3 text-orange-500" />
-                  <span className="text-sm font-medium">Uploading...</span>
-                </>
-              ) : (
-                <>
-                  <Camera className="w-12 h-12 mb-3 text-orange-500" />
-                  <span className="text-sm font-medium">{label}</span>
-                  <span className="text-xs text-gray-400 mt-1">Click to capture photo</span>
-                </>
+            <div className="w-full h-48 flex flex-col items-center justify-center">
+              <button
+                onClick={handleCameraClick}
+                disabled={uploading}
+                className="w-full h-full flex flex-col items-center justify-center text-gray-500 hover:text-orange-600 transition-colors disabled:opacity-50"
+              >
+                {uploading ? (
+                  <>
+                    <Loader2 className="w-12 h-12 animate-spin mb-3 text-orange-500" />
+                    <span className="text-sm font-medium">Uploading...</span>
+                  </>
+                ) : (
+                  <>
+                    <Camera className="w-12 h-12 mb-3 text-orange-500" />
+                    <span className="text-sm font-medium">{label}</span>
+                    <span className="text-xs text-gray-400 mt-1">Click to capture photo</span>
+                  </>
+                )}
+              </button>
+              {!uploading && (
+                <button
+                  onClick={handleFileButtonClick}
+                  className="mt-2 px-4 py-2 text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors"
+                >
+                  Or select from device
+                </button>
               )}
-            </button>
+            </div>
           )}
         </div>
       )}
