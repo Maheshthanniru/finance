@@ -33,13 +33,24 @@ export default function CustomersPage() {
     try {
       const response = await fetch('/api/customers')
       if (!response.ok) {
-        throw new Error('Failed to fetch customers')
+        const errorData = await response.json().catch(() => ({}))
+        console.error('Error fetching customers:', errorData)
+        alert(`Error fetching customers: ${errorData.error || 'Unknown error'}`)
+        setCustomers([])
+        return
       }
       const data = await response.json()
-      setCustomers(data)
-    } catch (error) {
+      if (data.error) {
+        console.error('Error from API:', data.error)
+        alert(`Error: ${data.error}`)
+        setCustomers([])
+        return
+      }
+      setCustomers(Array.isArray(data) ? data : [])
+    } catch (error: any) {
       console.error('Error fetching customers:', error)
-      alert('Error fetching customers. Please check the console for details.')
+      alert(`Error fetching customers: ${error.message || 'Unknown error'}`)
+      setCustomers([])
     }
   }
 

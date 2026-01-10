@@ -156,6 +156,152 @@ export default function HPLedgerPage() {
     return format(date, 'dd-MMM-yy')
   }
 
+  const handleRenewal = async () => {
+    if (!selectedAccount || !formData.loanAmount || formData.loanAmount <= 0) {
+      alert('Please select an account and ensure loan amount is valid')
+      return
+    }
+
+    const renewalAmount = formData.totalPayable || formData.loanAmount
+    const confirmMessage = `Renew loan for ${formData.customerName || 'this account'}?\n\n` +
+      `Renewal Amount: ₹${formatCurrency(renewalAmount)}\n\n` +
+      `This will:\n` +
+      `1. Record a payment transaction of ₹${formatCurrency(renewalAmount)}\n` +
+      `2. Update loan dates (Loan Date = Current Date, Due Date = Current Date + Period)\n` +
+      `3. Reset installment calculations\n\n` +
+      `Continue?`
+
+    if (!confirm(confirmMessage)) {
+      return
+    }
+
+    try {
+      const renewalDate = new Date().toISOString().split('T')[0]
+      
+      // Calculate new due date: renewal date + total installments period
+      const installmentPeriod = formData.totalInstallments || 12
+      const renewalDateObj = new Date(renewalDate + 'T00:00:00')
+      
+      let newDueDate = renewalDate
+      if (formData.dueDate) {
+        const dueDateObj = new Date(formData.dueDate + 'T00:00:00')
+        dueDateObj.setMonth(dueDateObj.getMonth() + installmentPeriod)
+        newDueDate = dueDateObj.toISOString().split('T')[0]
+      } else {
+        renewalDateObj.setMonth(renewalDateObj.getMonth() + installmentPeriod)
+        newDueDate = renewalDateObj.toISOString().split('T')[0]
+      }
+
+      // Step 1: Create payment transaction
+      const transaction = {
+        id: '',
+        date: renewalDate,
+        accountName: formData.customerName || `HP-${formData.number || ''}`,
+        particulars: `Loan Renewal - HP-${formData.number || ''} - ${formData.customerName || ''}`,
+        number: String(formData.number || ''),
+        debit: renewalAmount,
+        credit: 0,
+        userName: 'RAMESH',
+        entryTime: new Date().toISOString(),
+      }
+
+      const transactionResponse = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(transaction),
+      })
+
+      if (!transactionResponse.ok) {
+        const error = await transactionResponse.json()
+        throw new Error(error.error || 'Failed to create transaction')
+      }
+
+      // Step 2: Update loan
+      const updatedLoan = {
+        ...formData,
+        loanDate: renewalDate,
+        dueDate: newDueDate,
+        lastDate: newDueDate,
+      }
+
+      const loanResponse = await fetch(`/api/loans/${selectedAccount}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedLoan),
+      })
+
+      if (!loanResponse.ok) {
+        const error = await loanResponse.json()
+        throw new Error(error.error || 'Failed to update loan')
+      }
+
+      alert(`Loan renewed successfully!\n\nPayment recorded: ₹${formatCurrency(renewalAmount)}\nNew Due Date: ${new Date(newDueDate).toLocaleDateString()}`)
+      
+      await fetchAccountDetails(selectedAccount)
+      await fetchInstallments(selectedAccount)
+      await fetchLedgerTransactions(selectedAccount)
+      await fetchAccounts()
+    } catch (error: any) {
+      console.error('Error renewing loan:', error)
+      alert(`Error renewing loan: ${error.message || 'Unknown error'}`)
+    }
+  }
+
+  const handleCloseAccount = async () => {
+    if (!selectedAccount || !formData.totalPayable || formData.totalPayable <= 0) {
+      alert('Please select an account and ensure close amount is valid')
+      return
+    }
+
+    const closeAmount = formData.totalPayable
+    const confirmMessage = `Close loan account for ${formData.customerName || 'this account'}?\n\n` +
+      `Total Amount to Close: ₹${formatCurrency(closeAmount)}\n\n` +
+      `This will:\n` +
+      `1. Record a payment transaction of ₹${formatCurrency(closeAmount)}\n` +
+      `2. Mark the loan as closed\n\n` +
+      `Continue?`
+
+    if (!confirm(confirmMessage)) {
+      return
+    }
+
+    try {
+      const closeDate = new Date().toISOString().split('T')[0]
+      
+      const transaction = {
+        id: '',
+        date: closeDate,
+        accountName: formData.customerName || `HP-${formData.number || ''}`,
+        particulars: `Loan Closed - HP-${formData.number || ''} - ${formData.customerName || ''}`,
+        number: String(formData.number || ''),
+        debit: closeAmount,
+        credit: 0,
+        userName: 'RAMESH',
+        entryTime: new Date().toISOString(),
+      }
+
+      const transactionResponse = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(transaction),
+      })
+
+      if (!transactionResponse.ok) {
+        const error = await transactionResponse.json()
+        throw new Error(error.error || 'Failed to create transaction')
+      }
+
+      alert(`Loan closed successfully!\n\nFinal payment recorded: ₹${formatCurrency(closeAmount)}`)
+      
+      await fetchAccountDetails(selectedAccount)
+      await fetchLedgerTransactions(selectedAccount)
+      await fetchAccounts()
+    } catch (error: any) {
+      console.error('Error closing loan:', error)
+      alert(`Error closing loan: ${error.message || 'Unknown error'}`)
+    }
+  }
+
   const creditTotal = ledgerTransactions.reduce((sum, t) => sum + t.credit, 0)
   const debitTotal = ledgerTransactions.reduce((sum, t) => sum + t.debit, 0)
   const balance = creditTotal - debitTotal
@@ -360,10 +506,75 @@ export default function HPLedgerPage() {
                   <Save className="w-4 h-4" />
                   Save
                 </button>
-                <button className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md flex items-center gap-2">
+                <button
+                  onClick={handleRenewal}
+                  disabled={!selectedAccount || !formData.totalPayable}
+                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-md"
+                >
+                  Renewal Account
+                </button>
+                <button
+                  onClick={handleCloseAccount}
+                  disabled={!selectedAccount || !formData.totalPayable}
+                  className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-md"
+                >
+                  Close Account
+                </button>
+                <button
+                  onClick={() => {
+                    fetchAccountDetails(selectedAccount)
+                    fetchInstallments(selectedAccount)
+                    fetchLedgerTransactions(selectedAccount)
+                  }}
+                  disabled={!selectedAccount}
+                  className="bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-md flex items-center gap-2"
+                >
                   <RefreshCw className="w-4 h-4" />
                   Refresh
                 </button>
+              </div>
+            </div>
+
+            {/* Installment Details Table */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-lg font-bold mb-4">Installment Details</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th className="px-2 py-2 text-left border">S#</th>
+                      <th className="px-2 py-2 text-left border">DueDate</th>
+                      <th className="px-2 py-2 text-right border">InstallmentAmount</th>
+                      <th className="px-2 py-2 text-right border">PaidAmount</th>
+                      <th className="px-2 py-2 text-right border">DueAmount</th>
+                      <th className="px-2 py-2 text-left border">PaidDate</th>
+                      <th className="px-2 py-2 text-right border">Duedays</th>
+                      <th className="px-2 py-2 text-right border">Penalty</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {installments.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="px-2 py-4 text-center text-gray-400 border">
+                          No installments found
+                        </td>
+                      </tr>
+                    ) : (
+                      installments.map((inst) => (
+                        <tr key={inst.sn} className="hover:bg-gray-50">
+                          <td className="px-2 py-2 border">{inst.sn}</td>
+                          <td className="px-2 py-2 border">{formatDate(inst.dueDate)}</td>
+                          <td className="px-2 py-2 border text-right">{formatCurrency(inst.installmentAmount)}</td>
+                          <td className="px-2 py-2 border text-right">{formatCurrency(inst.paidAmount)}</td>
+                          <td className="px-2 py-2 border text-right">{formatCurrency(inst.dueAmount)}</td>
+                          <td className="px-2 py-2 border">{inst.paidDate ? formatDate(inst.paidDate) : '-'}</td>
+                          <td className="px-2 py-2 border text-right">{inst.dueDays}</td>
+                          <td className="px-2 py-2 border text-right">{formatCurrency(inst.penalty)}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>

@@ -579,7 +579,16 @@ export async function getDayBook(date: string): Promise<DayBookEntry[]> {
     }
 
     // Ensure date is in YYYY-MM-DD format
-    const formattedDate = date.split('T')[0]; // Remove time if present
+    let formattedDate = date.split('T')[0]; // Remove time if present
+    
+    // Ensure the date string is properly formatted
+    if (formattedDate.length !== 10) {
+      // Try to parse and reformat the date
+      const dateObj = new Date(formattedDate);
+      if (!isNaN(dateObj.getTime())) {
+        formattedDate = dateObj.toISOString().split('T')[0];
+      }
+    }
     
     console.log('Fetching day book for date:', formattedDate);
     
@@ -588,7 +597,8 @@ export async function getDayBook(date: string): Promise<DayBookEntry[]> {
       .select('*')
       .eq('date', formattedDate)
       .eq('is_deleted', false)
-      .order('entry_time', { ascending: true });
+      .order('entry_time', { ascending: true })
+      .order('created_at', { ascending: true }); // Fallback ordering
 
     if (error) {
       console.error('Supabase error fetching day book:', error);
@@ -597,16 +607,24 @@ export async function getDayBook(date: string): Promise<DayBookEntry[]> {
 
     console.log(`Found ${transactions?.length || 0} transactions for date ${formattedDate}`);
 
-    return (transactions || []).map((t: any, index: number) => ({
+    if (!transactions || transactions.length === 0) {
+      return [];
+    }
+
+    // Map transactions to day book entries with proper formatting
+    const entries = transactions.map((t: any, index: number) => ({
       sn: index + 1,
-      headOfAccount: t.account_name || '',
+      headOfAccount: t.account_name || t.accountName || '',
       particulars: t.particulars || '',
       number: t.number || t.rno || '',
-      credit: parseFloat(t.credit || 0),
-      debit: parseFloat(t.debit || 0),
+      credit: Math.max(0, parseFloat(t.credit || 0)),
+      debit: Math.max(0, parseFloat(t.debit || 0)),
     }));
+
+    return entries;
   } catch (error: any) {
     console.error('Error fetching day book:', error);
+    // Return empty array instead of throwing to prevent UI crashes
     return [];
   }
 }

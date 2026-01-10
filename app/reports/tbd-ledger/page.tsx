@@ -139,6 +139,153 @@ export default function TBDLedgerPage() {
     return format(date, 'dd-MMM-yy')
   }
 
+  const handleRenewal = async () => {
+    if (!selectedAccount || !formData.loanAmount || formData.loanAmount <= 0) {
+      alert('Please select an account and ensure loan amount is valid')
+      return
+    }
+
+    // Calculate renewal amount: loan amount + due amount
+    const renewalAmount = (formData.loanAmount || 0) + (formData.dueAmount || 0)
+    const confirmMessage = `Renew loan for ${formData.customerName || 'this account'}?\n\n` +
+      `Renewal Amount: ₹${formatCurrency(renewalAmount)}\n\n` +
+      `This will:\n` +
+      `1. Record a payment transaction of ₹${formatCurrency(renewalAmount)}\n` +
+      `2. Update loan dates (Joined Date = Current Date, Due Date = Current Date + Premium Days)\n` +
+      `3. Reset premium calculations\n\n` +
+      `Continue?`
+
+    if (!confirm(confirmMessage)) {
+      return
+    }
+
+    try {
+      const renewalDate = new Date().toISOString().split('T')[0]
+      
+      // Calculate new due date: renewal date + premium days
+      const premiumDays = formData.premiumDays || 30
+      const renewalDateObj = new Date(renewalDate + 'T00:00:00')
+      renewalDateObj.setDate(renewalDateObj.getDate() + premiumDays)
+      const newDueDate = renewalDateObj.toISOString().split('T')[0]
+
+      // Step 1: Create payment transaction
+      const transaction = {
+        id: '',
+        date: renewalDate,
+        accountName: formData.customerName || `TBD-${formData.number || ''}`,
+        particulars: `Loan Renewal - TBD-${formData.number || ''} - ${formData.customerName || ''}`,
+        number: String(formData.number || ''),
+        debit: renewalAmount,
+        credit: 0,
+        userName: 'RAMESH',
+        entryTime: new Date().toISOString(),
+      }
+
+      const transactionResponse = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(transaction),
+      })
+
+      if (!transactionResponse.ok) {
+        const error = await transactionResponse.json()
+        throw new Error(error.error || 'Failed to create transaction')
+      }
+
+      // Step 2: Update loan
+      const updatedLoan = {
+        ...formData,
+        joinedDate: renewalDate,
+        dueDate: newDueDate,
+        paidAmount: 0,
+        paidDays: 0,
+        dueAmount: formData.loanAmount || 0,
+      }
+
+      const loanResponse = await fetch(`/api/loans/${selectedAccount}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedLoan),
+      })
+
+      if (!loanResponse.ok) {
+        const error = await loanResponse.json()
+        throw new Error(error.error || 'Failed to update loan')
+      }
+
+      alert(`Loan renewed successfully!\n\nPayment recorded: ₹${formatCurrency(renewalAmount)}\nNew Due Date: ${new Date(newDueDate).toLocaleDateString()}`)
+      
+      await fetchAccountDetails(selectedAccount)
+      await fetchLedgerTransactions(selectedAccount)
+      await fetchAccounts()
+    } catch (error: any) {
+      console.error('Error renewing loan:', error)
+      alert(`Error renewing loan: ${error.message || 'Unknown error'}`)
+    }
+  }
+
+  const handleCloseAccount = async () => {
+    if (!selectedAccount) {
+      alert('Please select an account first')
+      return
+    }
+
+    // Calculate close amount: loan amount + due amount
+    const closeAmount = (formData.loanAmount || 0) + (formData.dueAmount || 0)
+    
+    if (closeAmount <= 0) {
+      alert('Invalid close amount. Please check loan details.')
+      return
+    }
+
+    const confirmMessage = `Close loan account for ${formData.customerName || 'this account'}?\n\n` +
+      `Total Amount to Close: ₹${formatCurrency(closeAmount)}\n\n` +
+      `This will:\n` +
+      `1. Record a payment transaction of ₹${formatCurrency(closeAmount)}\n` +
+      `2. Mark the loan as closed\n\n` +
+      `Continue?`
+
+    if (!confirm(confirmMessage)) {
+      return
+    }
+
+    try {
+      const closeDate = new Date().toISOString().split('T')[0]
+      
+      const transaction = {
+        id: '',
+        date: closeDate,
+        accountName: formData.customerName || `TBD-${formData.number || ''}`,
+        particulars: `Loan Closed - TBD-${formData.number || ''} - ${formData.customerName || ''}`,
+        number: String(formData.number || ''),
+        debit: closeAmount,
+        credit: 0,
+        userName: 'RAMESH',
+        entryTime: new Date().toISOString(),
+      }
+
+      const transactionResponse = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(transaction),
+      })
+
+      if (!transactionResponse.ok) {
+        const error = await transactionResponse.json()
+        throw new Error(error.error || 'Failed to create transaction')
+      }
+
+      alert(`Loan closed successfully!\n\nFinal payment recorded: ₹${formatCurrency(closeAmount)}`)
+      
+      await fetchAccountDetails(selectedAccount)
+      await fetchLedgerTransactions(selectedAccount)
+      await fetchAccounts()
+    } catch (error: any) {
+      console.error('Error closing loan:', error)
+      alert(`Error closing loan: ${error.message || 'Unknown error'}`)
+    }
+  }
+
   const creditTotal = ledgerTransactions.reduce((sum, t) => sum + t.credit, 0)
   const debitTotal = ledgerTransactions.reduce((sum, t) => sum + t.debit, 0)
   const balance = creditTotal - debitTotal
@@ -370,7 +517,18 @@ export default function TBDLedgerPage() {
                   <Save className="w-5 h-5" />
                   SAVE
                 </button>
-                <button className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-md flex items-center gap-2">
+                <button
+                  onClick={handleRenewal}
+                  disabled={!selectedAccount || !formData.loanAmount}
+                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-6 py-2 rounded-md"
+                >
+                  Renewal Account
+                </button>
+                <button
+                  onClick={handleCloseAccount}
+                  disabled={!selectedAccount || !formData.loanAmount}
+                  className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-6 py-2 rounded-md flex items-center gap-2"
+                >
                   <X className="w-5 h-5" />
                   Close Account
                 </button>

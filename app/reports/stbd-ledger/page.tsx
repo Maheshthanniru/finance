@@ -157,6 +157,167 @@ export default function STBDLedgerPage() {
     return format(date, 'dd-MMM-yy')
   }
 
+  const handleRenewal = async () => {
+    if (!selectedAccount || !formData.loanAmount || formData.loanAmount <= 0) {
+      alert('Please select an account and ensure loan amount is valid')
+      return
+    }
+
+    const renewalAmount = formData.totalPayable || formData.loanAmount
+    const confirmMessage = `Renew loan for ${formData.customerName || 'this account'}?\n\n` +
+      `Renewal Amount: ₹${formatCurrency(renewalAmount)}\n\n` +
+      `This will:\n` +
+      `1. Record a payment transaction of ₹${formatCurrency(renewalAmount)}\n` +
+      `2. Update loan dates (Loan Date = Current Date, Due Date = Current Date + Period)\n` +
+      `3. Reset installment calculations\n\n` +
+      `Continue?`
+
+    if (!confirm(confirmMessage)) {
+      return
+    }
+
+    try {
+      const renewalDate = new Date().toISOString().split('T')[0]
+      
+      // Calculate new due date: renewal date + total installments period
+      const installmentPeriod = formData.totalInstallments || 12 // Default to 12 months if not set
+      const renewalDateObj = new Date(renewalDate + 'T00:00:00')
+      
+      // For STBD, calculate due date based on last installment
+      let newDueDate = renewalDate
+      if (formData.dueDate) {
+        // If there's a due date, extend it by the installment period
+        const dueDateObj = new Date(formData.dueDate + 'T00:00:00')
+        dueDateObj.setMonth(dueDateObj.getMonth() + installmentPeriod)
+        newDueDate = dueDateObj.toISOString().split('T')[0]
+      } else {
+        // Calculate from renewal date
+        renewalDateObj.setMonth(renewalDateObj.getMonth() + installmentPeriod)
+        newDueDate = renewalDateObj.toISOString().split('T')[0]
+      }
+
+      // Step 1: Create payment transaction (debit entry)
+      const transaction = {
+        id: '',
+        date: renewalDate,
+        accountName: formData.customerName || `STBD-${formData.number || ''}`,
+        particulars: `Loan Renewal - STBD-${formData.number || ''} - ${formData.customerName || ''}`,
+        number: String(formData.number || ''),
+        debit: renewalAmount,
+        credit: 0,
+        userName: 'RAMESH',
+        entryTime: new Date().toISOString(),
+      }
+
+      const transactionResponse = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(transaction),
+      })
+
+      if (!transactionResponse.ok) {
+        const error = await transactionResponse.json()
+        throw new Error(error.error || 'Failed to create transaction')
+      }
+
+      // Step 2: Update loan with new dates
+      const updatedLoan = {
+        ...formData,
+        loanDate: renewalDate,
+        dueDate: newDueDate,
+        lastDate: newDueDate,
+      }
+
+      const loanResponse = await fetch(`/api/loans/${selectedAccount}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedLoan),
+      })
+
+      if (!loanResponse.ok) {
+        const error = await loanResponse.json()
+        throw new Error(error.error || 'Failed to update loan')
+      }
+
+      alert(`Loan renewed successfully!\n\nPayment recorded: ₹${formatCurrency(renewalAmount)}\nNew Due Date: ${new Date(newDueDate).toLocaleDateString()}`)
+      
+      // Refresh data
+      await fetchAccountDetails(selectedAccount)
+      await fetchInstallments(selectedAccount)
+      await fetchLedgerTransactions(selectedAccount)
+      await fetchAccounts()
+    } catch (error: any) {
+      console.error('Error renewing loan:', error)
+      alert(`Error renewing loan: ${error.message || 'Unknown error'}`)
+    }
+  }
+
+  const handleCloseAccount = async () => {
+    if (!selectedAccount || !formData.totalPayable || formData.totalPayable <= 0) {
+      alert('Please select an account and ensure close amount is valid')
+      return
+    }
+
+    const closeAmount = formData.totalPayable
+    const confirmMessage = `Close loan account for ${formData.customerName || 'this account'}?\n\n` +
+      `Total Amount to Close: ₹${formatCurrency(closeAmount)}\n\n` +
+      `This will:\n` +
+      `1. Record a payment transaction of ₹${formatCurrency(closeAmount)}\n` +
+      `2. Mark the loan as closed\n\n` +
+      `Continue?`
+
+    if (!confirm(confirmMessage)) {
+      return
+    }
+
+    try {
+      const closeDate = new Date().toISOString().split('T')[0]
+      
+      // Create payment transaction (debit entry)
+      const transaction = {
+        id: '',
+        date: closeDate,
+        accountName: formData.customerName || `STBD-${formData.number || ''}`,
+        particulars: `Loan Closed - STBD-${formData.number || ''} - ${formData.customerName || ''}`,
+        number: String(formData.number || ''),
+        debit: closeAmount,
+        credit: 0,
+        userName: 'RAMESH',
+        entryTime: new Date().toISOString(),
+      }
+
+      const transactionResponse = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(transaction),
+      })
+
+      if (!transactionResponse.ok) {
+        const error = await transactionResponse.json()
+        throw new Error(error.error || 'Failed to create transaction')
+      }
+
+      alert(`Loan closed successfully!\n\nFinal payment recorded: ₹${formatCurrency(closeAmount)}`)
+      
+      // Refresh data
+      await fetchAccountDetails(selectedAccount)
+      await fetchLedgerTransactions(selectedAccount)
+      await fetchAccounts()
+    } catch (error: any) {
+      console.error('Error closing loan:', error)
+      alert(`Error closing loan: ${error.message || 'Unknown error'}`)
+    }
+  }
+
+  const handlePrintReceipt = () => {
+    if (!selectedAccount) {
+      alert('Please select an account first')
+      return
+    }
+    // Open print dialog for receipt
+    window.print()
+  }
+
   const creditTotal = ledgerTransactions.reduce((sum, t) => sum + t.credit, 0)
   const debitTotal = ledgerTransactions.reduce((sum, t) => sum + t.debit, 0)
   const balance = creditTotal - debitTotal
@@ -390,7 +551,11 @@ export default function STBDLedgerPage() {
                 </div>
               </div>
               <div className="mt-4 flex gap-4">
-                <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md flex items-center gap-2">
+                <button
+                  onClick={handlePrintReceipt}
+                  disabled={!selectedAccount}
+                  className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-md flex items-center gap-2"
+                >
                   <Printer className="w-4 h-4" />
                   Print Receipt
                 </button>
@@ -401,7 +566,29 @@ export default function STBDLedgerPage() {
                   <Save className="w-4 h-4" />
                   Save
                 </button>
-                <button className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md flex items-center gap-2">
+                <button
+                  onClick={handleRenewal}
+                  disabled={!selectedAccount || !formData.totalPayable}
+                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-md"
+                >
+                  Renewal Account
+                </button>
+                <button
+                  onClick={handleCloseAccount}
+                  disabled={!selectedAccount || !formData.totalPayable}
+                  className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-md"
+                >
+                  Close Account
+                </button>
+                <button
+                  onClick={() => {
+                    fetchAccountDetails(selectedAccount)
+                    fetchInstallments(selectedAccount)
+                    fetchLedgerTransactions(selectedAccount)
+                  }}
+                  disabled={!selectedAccount}
+                  className="bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-md flex items-center gap-2"
+                >
                   <RefreshCw className="w-4 h-4" />
                   Refresh
                 </button>

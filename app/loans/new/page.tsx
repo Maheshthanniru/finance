@@ -61,40 +61,89 @@ export default function LoansEntryForm() {
   const fetchLoans = async () => {
     try {
       const response = await fetch('/api/loans')
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('Error fetching loans:', errorData)
+        setExistingLoans([])
+        return
+      }
       const data = await response.json()
-      setExistingLoans(data.slice(0, 10)) // Show last 10 loans
+      if (data.error) {
+        console.error('Error from API:', data.error)
+        setExistingLoans([])
+        return
+      }
+      const loans = Array.isArray(data) ? data : []
+      setExistingLoans(loans.slice(0, 10)) // Show last 10 loans
     } catch (error) {
       console.error('Error fetching loans:', error)
+      setExistingLoans([])
     }
   }
 
   const fetchCustomers = async () => {
     try {
       const response = await fetch('/api/customers')
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('Error fetching customers:', errorData)
+        setCustomers([])
+        return
+      }
       const data = await response.json()
-      setCustomers(data)
+      if (data.error) {
+        console.error('Error from API:', data.error)
+        setCustomers([])
+        return
+      }
+      setCustomers(Array.isArray(data) ? data : [])
     } catch (error) {
       console.error('Error fetching customers:', error)
+      setCustomers([])
     }
   }
 
   const fetchPartners = async () => {
     try {
       const response = await fetch('/api/partners')
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('Error fetching partners:', errorData)
+        setPartners([])
+        return
+      }
       const data = await response.json()
-      setPartners(data)
+      if (data.error) {
+        console.error('Error from API:', data.error)
+        setPartners([])
+        return
+      }
+      setPartners(Array.isArray(data) ? data : [])
     } catch (error) {
       console.error('Error fetching partners:', error)
+      setPartners([])
     }
   }
 
   const fetchGuarantors = async () => {
     try {
       const response = await fetch('/api/guarantors')
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('Error fetching guarantors:', errorData)
+        setGuarantors([])
+        return
+      }
       const data = await response.json()
-      setGuarantors(data)
+      if (data.error) {
+        console.error('Error from API:', data.error)
+        setGuarantors([])
+        return
+      }
+      setGuarantors(Array.isArray(data) ? data : [])
     } catch (error) {
       console.error('Error fetching guarantors:', error)
+      setGuarantors([])
     }
   }
 
@@ -736,17 +785,25 @@ export default function LoansEntryForm() {
                     </tr>
                   </thead>
                   <tbody>
-                    {existingLoans.map((loan) => (
-                      <tr key={loan.id} className="border-t hover:bg-gray-50">
-                        <td className="px-2 py-1">{loan.number}</td>
-                        <td className="px-2 py-1">{formatDate(loan.date)}</td>
-                        <td className="px-2 py-1">{loan.customerName}</td>
-                        <td className="px-2 py-1 truncate max-w-xs">{loan.address}</td>
-                        <td className="px-2 py-1">{loan.phone1}</td>
-                        <td className="px-2 py-1">{loan.partnerName}</td>
-                        <td className="px-2 py-1">{loan.period}</td>
+                    {existingLoans.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-2 py-4 text-center text-gray-400">
+                          No loans found. Create your first loan entry.
+                        </td>
                       </tr>
-                    ))}
+                    ) : (
+                      existingLoans.map((loan) => (
+                        <tr key={loan.id} className="border-t hover:bg-gray-50">
+                          <td className="px-2 py-1">{loan.number}</td>
+                          <td className="px-2 py-1">{formatDate(loan.date)}</td>
+                          <td className="px-2 py-1">{loan.customerName}</td>
+                          <td className="px-2 py-1 truncate max-w-xs">{loan.address}</td>
+                          <td className="px-2 py-1">{loan.phone1}</td>
+                          <td className="px-2 py-1">{loan.partnerName}</td>
+                          <td className="px-2 py-1">{loan.period}</td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
