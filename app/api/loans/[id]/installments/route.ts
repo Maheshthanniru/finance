@@ -107,7 +107,7 @@ export async function GET(
             penalty: inst.penalty,
           })),
           { onConflict: 'loan_id,sn' }
-        ).then(({ error }) => {
+        ).then(({ error }: { error: any }) => {
           if (error) {
             console.error('Error saving installments:', error)
           }

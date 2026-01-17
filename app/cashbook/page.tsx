@@ -38,7 +38,7 @@ export default function CashBookEntryPage() {
       const response = await fetch('/api/reports/ledger/accounts')
       if (response.ok) {
         const data = await response.json()
-        const uniqueHeads = [...new Set(data.map((acc: any) => acc.aName))].sort()
+        const uniqueHeads = Array.from(new Set(data.map((acc: any) => acc.aName))).sort() as string[]
         setAccountHeads(uniqueHeads)
       }
     } catch (error) {
