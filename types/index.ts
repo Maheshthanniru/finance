@@ -49,6 +49,7 @@ export interface Transaction {
   debit: number;
   userName: string;
   entryTime: string;
+  transactionType?: string; // Optional: 'cash_book_entry', 'loan_transaction', 'capital_entry', etc.
 }
 
 export interface Partner {

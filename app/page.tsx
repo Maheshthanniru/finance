@@ -14,7 +14,8 @@ import {
   UserPlus,
   CreditCard,
   Receipt,
-  Calendar
+  Calendar,
+  Book
 } from 'lucide-react'
 
 type MenuItem = {
@@ -45,6 +46,7 @@ export default function Home() {
     { name: 'Partners', icon: Users, path: '/partners' },
     { name: 'New Customer Entry', icon: UserPlus, path: '/customers/new' },
     { name: 'New Guarantor Entry', icon: UserPlus, path: '/guarantors/new' },
+    { name: 'Cash Book Entry Form', icon: Book, path: '/cashbook' },
     { name: 'Search', icon: SearchIcon, path: '/search' },
     { name: 'Aadhaar Search', icon: SearchIcon, path: '/search/aadhaar' },
     { name: 'Calculator', icon: CalculatorIcon, path: '/calculator' },

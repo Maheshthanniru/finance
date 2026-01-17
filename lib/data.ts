@@ -99,6 +99,7 @@ function mapTransactionFromDb(dbTransaction: any): Transaction {
     debit: parseFloat(dbTransaction.debit),
     userName: dbTransaction.user_name,
     entryTime: dbTransaction.entry_time,
+    transactionType: dbTransaction.transaction_type,
   };
 }
 
@@ -114,6 +115,7 @@ function mapTransactionToDb(transaction: Transaction): any {
     debit: transaction.debit,
     user_name: transaction.userName,
     entry_time: transaction.entryTime,
+    transaction_type: transaction.transactionType || 'cash_book_entry', // Default to cash_book_entry
   };
   
   // Only include ID if it's a valid UUID (for updates)
