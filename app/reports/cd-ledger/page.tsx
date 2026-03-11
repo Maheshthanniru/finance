@@ -21,6 +21,8 @@ export default function CDLedgerPage() {
     penalty: 0,
     totalAmtForRenewal: 0,
     totalAmtForClose: 0,
+    // Default overdue interest rate AFTER due date (can be changed by user)
+    overdueRate: 3.75,
   })
   const [ledgerTransactions, setLedgerTransactions] = useState<LedgerTransaction[]>([])
   const [accounts, setAccounts] = useState<CDLoan[]>([])
@@ -88,72 +90,70 @@ export default function CDLedgerPage() {
     // Calculate amount paid from ledger transactions (sum of debits)
     const amountPaid = transactions.reduce((sum, t) => sum + t.debit, 0)
     
-    // Get rate of interest (use rate if available, otherwise use rateOfInterest, default to 12%)
-    const rate = loan.rate || loan.rateOfInterest || 12
-    
-    // IMPORTANT: Calculate interest based on period from ORIGINAL LOAN DATE to TODAY (actual current date)
-    // Interest continues to accrue from loan date until today
-    // CRITICAL: loanDate MUST be the original loan date from database
-    // Always use actual current date for interest calculation
-    let periodDays = 0
-    if (loanDate && !isNaN(loanDate.getTime()) && !isNaN(today.getTime())) {
-      // Calculate period from ORIGINAL loan date to TODAY (actual current date)
-      // Use Math.floor to get exact days (not rounding up)
-      const diffTime = today.getTime() - loanDate.getTime()
-      periodDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)))
-    } else if (loan.period) {
-      // If period couldn't be calculated from dates, use stored period field
-      periodDays = loan.period
-    } else {
-      // Default: calculate from loan date to today if loanDate exists
-      if (loanDate) {
-        const diffTime = today.getTime() - loanDate.getTime()
-        periodDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)))
+    // Get base interest rate (before due date) and overdue interest rate (after due date)
+    // If not provided, default to 3% normal and 3.75% after due date
+    const baseRate = loan.rate || loan.rateOfInterest || 3
+    const overdueRate = loan.overdueRate ?? 3.75
+
+    const principal = loan.loanAmount || 0
+
+    // --- PERIOD SPLIT ---
+    // 1) Period from LOAN DATE to DUE DATE -> interest at baseRate on PRINCIPAL
+    // 2) Period AFTER DUE DATE to TODAY   -> interest at overdueRate on INTEREST (not on principal)
+
+    const msPerDay = 1000 * 60 * 60 * 24
+
+    let daysFromLoanToDue = 0
+    let daysFromDueToToday = 0
+
+    if (loanDate && dueDate && !isNaN(loanDate.getTime()) && !isNaN(dueDate.getTime())) {
+      // If today is before or on due date: all days are counted as pre‑due
+      if (today.getTime() <= dueDate.getTime()) {
+        const diff = today.getTime() - loanDate.getTime()
+        daysFromLoanToDue = Math.max(0, Math.floor(diff / msPerDay))
+        daysFromDueToToday = 0
+      } else {
+        // Today is after due date: split into [loanDate -> dueDate] and [dueDate -> today]
+        const preDueDiff = dueDate.getTime() - loanDate.getTime()
+        daysFromLoanToDue = Math.max(0, Math.floor(preDueDiff / msPerDay))
+
+        const postDueDiff = today.getTime() - dueDate.getTime()
+        daysFromDueToToday = Math.max(0, Math.floor(postDueDiff / msPerDay))
       }
+    } else if (loanDate && !isNaN(loanDate.getTime())) {
+      // If dueDate is not set, treat entire period as pre‑due at baseRate
+      const diff = today.getTime() - loanDate.getTime()
+      daysFromLoanToDue = Math.max(0, Math.floor(diff / msPerDay))
+      daysFromDueToToday = 0
     }
-    
-    // Calculate present interest based on period from loan date to today (actual current date)
-    // Interest continues accruing from loan date until today
-    // Formula: (Loan Amount * Rate * Period in days) / (100 * 365)
-    // Daily interest calculation: Principal * (Rate/100) * (Days/365)
-    // Use precise decimal calculation, round at the end
-    const presentInterest = loan.loanAmount > 0 && periodDays > 0 && rate > 0
-      ? (loan.loanAmount * rate * periodDays) / (100 * 365)
-      : 0
-    
-    // Calculate total balance: Loan Amount + Interest - Amount Paid
-    const totalBalance = loan.loanAmount + presentInterest - amountPaid
-    
-    // Calculate penalty: Based on overdue days (days past due date)
-    // Penalty applies if the loan is overdue
-    // Always use actual current date for overdue calculation
-    let penalty = 0
-    let overdueDays = 0
-    if (dueDate && !isNaN(dueDate.getTime()) && !isNaN(today.getTime())) {
-      // Calculate overdue days: Today (actual current date) - Due Date (positive if overdue)
-      const overdueDiff = today.getTime() - dueDate.getTime()
-      overdueDays = Math.max(0, Math.floor(overdueDiff / (1000 * 60 * 60 * 24)))
-    }
-    
-    // Calculate penalty: Based on overdue days and principal balance
-    // Formula: (Principal * Rate * Overdue Period in days) / (100 * 365)
-    // Penalty = Interest on principal for overdue period (daily calculation using same rate)
-    // Always use actual current date for penalty calculation
-    if (overdueDays > 0 && loan.loanAmount > 0) {
-      // Penalty is calculated as interest on principal for overdue period
-      // Using same rate as loan interest rate, calculated daily
-      penalty = (loan.loanAmount * rate * overdueDays) / (100 * 365)
-    }
-    
-    // Calculate total amount for renewal: Interest + Penalty (principal not included in renewal amount)
-    // When renewing, customer pays only interest + penalty, principal rolls over
-    // Based on image: Total Amt. for Ren = Interest + Penalty (without principal)
+
+    // --- INTEREST BEFORE DUE DATE (on principal) ---
+    const interestBeforeDue =
+      principal > 0 && baseRate > 0 && daysFromLoanToDue > 0
+        ? (principal * baseRate * daysFromLoanToDue) / (100 * 365)
+        : 0
+
+    // --- INTEREST AFTER DUE DATE (on interest only) ---
+    // From due date onwards, interest is applied ON THE INTEREST (not on principal)
+    const interestAfterDue =
+      interestBeforeDue > 0 && overdueRate > 0 && daysFromDueToToday > 0
+        ? (interestBeforeDue * overdueRate * daysFromDueToToday) / (100 * 365)
+        : 0
+
+    // Present interest is interest accumulated up to due date (business rule)
+    const presentInterest = interestBeforeDue
+
+    // Penalty is the extra interest that accrues on the interest after due date
+    const penalty = interestAfterDue
+
+    // Total outstanding balance on the account
+    const totalBalance = principal + presentInterest + penalty - amountPaid
+
+    // Customer can:
+    // - Pay only interest (presentInterest + penalty) to renew
+    // - Pay principal + interest to fully close
     const totalAmtForRenewal = presentInterest + penalty - amountPaid
-    
-    // Calculate total amount for close: Principal + Interest + Penalty - Amount Paid
-    // When closing, customer pays full amount including principal
-    // Based on image: Total Amt for Close = Loan Amount + Interest + Penalty
-    const totalAmtForClose = loan.loanAmount + presentInterest + penalty - amountPaid
+    const totalAmtForClose = principal + presentInterest + penalty - amountPaid
     
     return {
       amountPaid,
@@ -797,14 +797,24 @@ export default function CDLedgerPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Rate <span className="text-xs text-gray-500">(Auto-filled)</span></label>
+                  <label className="block text-sm font-medium mb-1">Rate (Before Due Date)</label>
                   <input
                     type="number"
                     step="0.01"
-                    value={formData.rate || formData.rateOfInterest || ''}
+                    value={formData.rate || formData.rateOfInterest || 3}
                     onChange={(e) => handleInputChange('rate', parseFloat(e.target.value))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    placeholder="Auto-filled from loan rate"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Due Date Interest Rate</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.overdueRate ?? 3.75}
+                    onChange={(e) => handleInputChange('overdueRate', parseFloat(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    title="Interest rate applied on interest amount after due date (e.g. 3.75%)"
                   />
                 </div>
                 <div>

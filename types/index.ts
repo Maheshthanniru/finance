@@ -112,6 +112,8 @@ export interface LedgerTransaction {
 export interface CDLoan extends Loan {
   receiptNo?: number;
   rate?: number;
+  // Overdue interest rate (e.g. 3.75%) applied on interest after due date
+  overdueRate?: number;
   amountPaid?: number;
   presentInterest?: number;
   totalBalance?: number;
